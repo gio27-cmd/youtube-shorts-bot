@@ -1,0 +1,76 @@
+name: YouTube Shorts Bot
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'      # research      — alle 6 Stunden
+    - cron: '30 2 * * *'       # produce       — täglich 02:30 UTC (ZeroGPU-Queue leer)
+    - cron: '0 10 * * *'       # analytics     — täglich 10:00 UTC
+    - cron: '0 12 * * *'       # ab_evaluate   — täglich 12:00 UTC
+    - cron: '0 9,15,21 * * *'  # comments      — 3x täglich
+    - cron: '0 23 * * 0'       # optimize      — sonntags 23:00 UTC
+  workflow_dispatch:           # manueller Start über den GitHub-"Run workflow"-Knopf
+    inputs:
+      task:
+        description: 'Welcher Task?'
+        type: choice
+        default: produce
+        options: [research, produce, analytics, ab_evaluate, comments, optimize]
+
+# Verhindert, dass sich zwei Läufe überschneiden (z.B. lange produce-Jobs)
+concurrency:
+  group: youtube-shorts-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # --- Pflicht ---
+      GEMINI_API_KEY:         ${{ secrets.GEMINI_API_KEY }}
+      YOUTUBE_CLIENT_ID:      ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET:  ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN:  ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_CHANNEL_ID:     ${{ secrets.YOUTUBE_CHANNEL_ID }}
+      HF_TOKEN:               ${{ secrets.HF_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_KV_NS_ID:    ${{ secrets.CLOUDFLARE_KV_NS_ID }}
+      CLOUDFLARE_API_TOKEN:   ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # --- Optional (leer lassen ist ok) ---
+      KLING_COOKIES:          ${{ secrets.KLING_COOKIES }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_USER_ID:      ${{ secrets.INSTAGRAM_USER_ID }}
+      # --- Font für ffmpeg drawtext (Overlays) ---
+      FFMPEG_FONT_FILE:       /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: System-Abhängigkeiten (ffmpeg + Font)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Python-Abhängigkeiten
+        run: pip install -r requirements.txt
+
+      - name: Task aus Cron-Zeit ableiten
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 */6 * * *")     echo "task=research"    >> "$GITHUB_OUTPUT" ;;
+            "30 2 * * *")      echo "task=produce"     >> "$GITHUB_OUTPUT" ;;
+            "0 10 * * *")      echo "task=analytics"   >> "$GITHUB_OUTPUT" ;;
+            "0 12 * * *")      echo "task=ab_evaluate" >> "$GITHUB_OUTPUT" ;;
+            "0 9,15,21 * * *") echo "task=comments"    >> "$GITHUB_OUTPUT" ;;
+            "0 23 * * 0")      echo "task=optimize"    >> "$GITHUB_OUTPUT" ;;
+            *)                 echo "task=${{ github.event.inputs.task }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Bot-Task ausführen
+        run: python run_task.py "${{ steps.pick.outputs.task }}"

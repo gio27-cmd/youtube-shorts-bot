@@ -1,0 +1,19 @@
+[Unit]
+Description=YouTube Shorts Bot (24/7)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# __USER__ und __DIR__ werden von install_service.sh ersetzt
+User=__USER__
+WorkingDirectory=__DIR__
+ExecStart=__DIR__/.venv/bin/python __DIR__/main.py
+Restart=always
+RestartSec=15
+# Logs landen zusätzlich in logs/bot.log (loguru) und im journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

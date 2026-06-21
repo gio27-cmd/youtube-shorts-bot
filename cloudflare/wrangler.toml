@@ -1,0 +1,13 @@
+name             = "youtube-shorts-bot"
+main             = "worker.js"
+compatibility_date = "2026-06-21"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+BOT_SERVER_URL = "http://your-oracle-vps-ip:8080"
+
+[[kv_namespaces]]
+binding = "BOT_MEMORY"
+id      = "93b7077015b04144b452ef5ee599709f"

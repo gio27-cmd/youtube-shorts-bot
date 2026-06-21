@@ -1,0 +1,26 @@
+# Secrets
+.env
+config/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Bot output
+temp/*
+!temp/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# OAuth / tokens
+client_secret*.json
+token.json
+
+# OS
+.DS_Store
+Thumbs.db
