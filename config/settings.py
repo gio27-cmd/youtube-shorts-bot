@@ -11,11 +11,23 @@ load_dotenv()
 # API KEYS
 # ============================================================
 GEMINI_API_KEY        = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL          = "gemini-2.5-flash"
 
-# OpenRouter — Fallback-LLM, falls Gemini ausfällt (Quota/Rate-Limit/Downtime).
-# Alle Gemini-Agents nutzen config.llm.LLMClient, der bei Gemini-Fehlern
-# automatisch hierauf ausweicht. Ohne Key bleibt es beim reinen Gemini-Verhalten.
+# Google-Modelle in PRIORITÄTSREIHENFOLGE: neuestes zuerst, danach bewährte
+# Free-Tier-Modelle. Jedes Modell hat eine EIGENE kostenlose Tagesquota — ist
+# das neueste gerade leer/nicht erreichbar, wird automatisch das nächste Google-
+# Modell probiert. Erst wenn ALLE scheitern, übernimmt OpenRouter (config.llm).
+# Per Env GEMINI_MODELS (kommagetrennt) überschreibbar.
+# Hinweis: gemini-2.0-flash bewusst NICHT enthalten — hat im Free-Tier limit 0.
+GEMINI_MODELS = [
+    m.strip() for m in os.getenv(
+        "GEMINI_MODELS",
+        "gemini-3.5-flash,gemini-2.5-flash,gemini-2.5-flash-lite"
+    ).split(",") if m.strip()
+]
+GEMINI_MODEL          = GEMINI_MODELS[0]   # Primär-/Default-Modell (Rückwärtskompat.)
+
+# OpenRouter — LETZTER Fallback, erst wenn alle Google-Modelle ausfallen.
+# Ohne Key bleibt es beim reinen Google-Verhalten.
 OPENROUTER_API_KEY    = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_MODEL      = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
 

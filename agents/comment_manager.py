@@ -3,21 +3,20 @@ Comment Manager — Antwortet auf Kommentare.
 +15-20% Reichweite durch Engagement in ersten 2 Stunden.
 """
 
-import google.generativeai as genai
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from loguru import logger
 from config.settings import (
-    GEMINI_API_KEY, GEMINI_MODEL,
     YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN
 )
+from config.llm import LLMClient
 
 
 class CommentManager:
 
     def __init__(self):
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.gemini = genai.GenerativeModel(GEMINI_MODEL)
+        # LLMClient: Google-Modelle (neuestes zuerst) → OpenRouter (siehe config/llm.py)
+        self.gemini = LLMClient()
 
     def _get_youtube_service(self):
         credentials = Credentials(

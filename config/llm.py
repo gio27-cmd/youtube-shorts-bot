@@ -23,7 +23,7 @@ from loguru import logger
 
 from config.settings import (
     GEMINI_API_KEY,
-    GEMINI_MODEL,
+    GEMINI_MODELS,
     OPENROUTER_API_KEY,
     OPENROUTER_MODEL,
 )
@@ -44,31 +44,34 @@ class _Response:
 class LLMClient:
     """Drop-in-Ersatz für genai.GenerativeModel mit OpenRouter-Fallback."""
 
-    def __init__(self, model: str | None = None):
-        self._gemini = None
+    def __init__(self, models: list[str] | None = None):
+        self.models = models or GEMINI_MODELS
+        self._gemini_ready = False
         if genai is not None and GEMINI_API_KEY:
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
-                self._gemini = genai.GenerativeModel(model or GEMINI_MODEL)
+                self._gemini_ready = True
             except Exception as e:  # pragma: no cover - Konfig-Fehler
                 logger.warning(f"Gemini-Init fehlgeschlagen ({e}) → nur OpenRouter")
 
     def generate_content(self, prompt: str) -> _Response:
-        # 1) Gemini zuerst
-        if self._gemini is not None:
-            try:
-                resp = self._gemini.generate_content(prompt)
-                text = getattr(resp, "text", None)
-                if text and text.strip():
-                    return _Response(text)
-                logger.warning("Gemini lieferte leere Antwort → OpenRouter-Fallback")
-            except Exception as e:
-                logger.warning(
-                    f"Gemini-Aufruf fehlgeschlagen ({type(e).__name__}: {e}) "
-                    f"→ OpenRouter-Fallback"
-                )
+        # 1) Google-Modelle der Reihe nach (neuestes zuerst). Jedes hat eine
+        #    eigene Free-Quota — ist eins leer/nicht erreichbar, kommt das nächste.
+        if self._gemini_ready:
+            for name in self.models:
+                try:
+                    resp = genai.GenerativeModel(name).generate_content(prompt)
+                    text = getattr(resp, "text", None)
+                    if text and text.strip():
+                        return _Response(text)
+                    logger.warning(f"Gemini {name}: leere Antwort → nächstes Modell")
+                except Exception as e:
+                    logger.warning(
+                        f"Gemini {name} fehlgeschlagen ({type(e).__name__}) → nächstes Modell"
+                    )
 
-        # 2) OpenRouter als Fallback
+        # 2) OpenRouter erst, wenn ALLE Google-Modelle ausgefallen sind
+        logger.info("Alle Google-Modelle nicht verfügbar → OpenRouter-Fallback")
         return _Response(self._openrouter(prompt))
 
     def _openrouter(self, prompt: str) -> str:
