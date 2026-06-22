@@ -37,6 +37,11 @@ YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")
 YOUTUBE_CHANNEL_ID    = os.getenv("YOUTUBE_CHANNEL_ID")
 
 HF_TOKEN              = os.getenv("HF_TOKEN")
+# Mehrere HF-Accounts: ZeroGPU-/Inference-Quota gilt PRO Account. Durch Rotation
+# über alle Tokens (ein Account pro Video) vervielfacht sich das tägliche
+# Gratis-Budget. Secret HF_TOKENS = kommagetrennte Liste; Fallback auf HF_TOKEN.
+HF_TOKENS             = [t.strip() for t in os.getenv("HF_TOKENS", "").split(",") if t.strip()] \
+                        or ([HF_TOKEN] if HF_TOKEN else [])
 
 REDDIT_CLIENT_ID      = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET  = os.getenv("REDDIT_CLIENT_SECRET")

@@ -45,6 +45,10 @@ VIDEO_SPACES = [
 
 class VideoGenerator:
 
+    def __init__(self, token: str | None = None):
+        # Pro Video rotierbarer HF-Account (siehe run_task). Standard: HF_TOKEN.
+        self.token = token or HF_TOKEN
+
     def _extract_mp4(self, result, output_path: str) -> str | None:
         """Findet den MP4-Pfad in den verschiedenen Gradio-Rückgabeformaten
         (dict{video:...}, Tuple, Liste, String)."""
@@ -73,7 +77,7 @@ class VideoGenerator:
                              prompt: str, output_path: str) -> str | None:
         space = cfg["space"]
         try:
-            client = Client(space, token=HF_TOKEN, verbose=False)
+            client = Client(space, token=self.token, verbose=False)
             duration = min(VIDEO_DURATION_SEC, MAX_FREE_DURATION)
             result = client.predict(
                 api_name=cfg["api_name"],

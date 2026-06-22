@@ -36,6 +36,8 @@ jobs:
       YOUTUBE_REFRESH_TOKEN:  ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_CHANNEL_ID:     ${{ secrets.YOUTUBE_CHANNEL_ID }}
       HF_TOKEN:               ${{ secrets.HF_TOKEN }}
+      # Mehrere HF-Accounts (kommagetrennt) für ZeroGPU-Quota-Rotation
+      HF_TOKENS:              ${{ secrets.HF_TOKENS }}
       CLOUDFLARE_ACCOUNT_ID:  ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_KV_NS_ID:    ${{ secrets.CLOUDFLARE_KV_NS_ID }}
       CLOUDFLARE_API_TOKEN:   ${{ secrets.CLOUDFLARE_API_TOKEN }}

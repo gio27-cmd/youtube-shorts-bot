@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 from loguru import logger
 
-from config.settings import TEMP_DIR, LOGS_DIR
+from config.settings import TEMP_DIR, LOGS_DIR, HF_TOKENS
 
 
 def _setup_logging() -> None:
@@ -72,9 +72,19 @@ def task_produce() -> None:
         logger.error("Keine Videos geplant!")
         return
 
-    for video_plan in videos_to_produce:
+    n_tokens = len(HF_TOKENS)
+    for i, video_plan in enumerate(videos_to_produce):
         video_id = str(uuid.uuid4())[:8]
         animal   = video_plan.get("animal", "golden retriever puppy")
+
+        # HF-Account pro Video rotieren → ZeroGPU-Quota auf alle Accounts verteilen.
+        if n_tokens:
+            token = HF_TOKENS[i % n_tokens]
+            image_gen.token = token
+            video_gen.token = token
+            music_gen.token = token
+            logger.info(f"🔑 HF-Account {i % n_tokens + 1}/{n_tokens} für dieses Video")
+
         try:
             logger.info(f"--- Produziere Video {video_id}: {animal} ---")
 

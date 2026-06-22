@@ -30,6 +30,10 @@ ACE_STEP_API   = "/__call__"
 
 class MusicGenerator:
 
+    def __init__(self, token: str | None = None):
+        # Pro Video rotierbarer HF-Account (siehe run_task). Standard: HF_TOKEN.
+        self.token = token or HF_TOKEN
+
     def _extract_audio(self, result, output_path: str) -> str | None:
         """Findet den Audio-Pfad in den verschiedenen Gradio-Rückgabeformaten."""
         found = []
@@ -55,7 +59,7 @@ class MusicGenerator:
     def generate_with_hf(self, mood: str, duration: int, output_path: str) -> str | None:
         """Generiert instrumentale Musik via ACE-Step HuggingFace Space."""
         try:
-            client = Client(ACE_STEP_SPACE, token=HF_TOKEN, verbose=False)
+            client = Client(ACE_STEP_SPACE, token=self.token, verbose=False)
             result = client.predict(
                 audio_duration=float(duration),
                 prompt=mood,

@@ -18,8 +18,9 @@ from config.settings import HF_TOKEN, KLING_COOKIES, TEMP_DIR
 
 class ImageGenerator:
 
-    def __init__(self):
-        self.hf_client = InferenceClient(token=HF_TOKEN)
+    def __init__(self, token: str | None = None):
+        # Pro Video rotierbarer HF-Account (siehe run_task). Standard: HF_TOKEN.
+        self.token = token or HF_TOKEN
         self.kling_headers = {
             "Cookie":       KLING_COOKIES or "",
             "User-Agent":   "Mozilla/5.0 (compatible; Bot)",
@@ -87,7 +88,8 @@ class ImageGenerator:
     def generate_with_flux(self, prompt: str, output_path: str) -> str:
         """Fallback: FLUX.1-schnell via HuggingFace."""
         logger.info("Nutze FLUX Fallback...")
-        image = self.hf_client.text_to_image(
+        # Client pro Aufruf mit aktuellem (rotierendem) Token erstellen.
+        image = InferenceClient(token=self.token).text_to_image(
             prompt,
             model="black-forest-labs/FLUX.1-schnell"
         )
