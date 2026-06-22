@@ -61,9 +61,9 @@ Analysiere für jedes Video ALLE Dimensionen:
 - setting: Ort/Umgebung/Licht
 - image_style: Kurze Bildbeschreibung (verbinde angle + setting sinnvoll)
 - hook_style: "shock" | "question" | "pov" | "fact"
-- hook_text_a: Hook-Text Variante A (für A/B Test)
-- hook_text_b: Hook-Text Variante B (für A/B Test)
-- hashtags: 3-5 relevante Hashtags (Array)
+- hook_text_a: Hook-Text Variante A — AUF ENGLISCH (erscheint als Text im Video)
+- hook_text_b: Hook-Text Variante B — AUF ENGLISCH
+- hashtags: 3-5 relevante englische Hashtags (Array)
 - music_mood: Musik-Stimmung für ACE-Step (keine Vocals, max 20 Wörter)
 - upload_time: Uhrzeit
 - reasoning: kurze, datenbasierte Begründung (nenne, ob eher eigene Erfahrung oder Trend ausschlaggebend war)

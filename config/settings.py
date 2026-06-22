@@ -154,7 +154,7 @@ REDDIT_SUBREDDITS = [
 YOUTUBE_CATEGORY_ID    = "15"       # Tiere & Natur
 YOUTUBE_PRIVACY        = "public"
 YOUTUBE_MADE_FOR_KIDS  = False      # IMMER FALSE! Sonst kein Revenue!
-YOUTUBE_LANGUAGE       = "de"
+YOUTUBE_LANGUAGE       = "en"
 YOUTUBE_MAX_UPLOADS_PER_DAY = 2     # Quota schonen
 
 # ============================================================

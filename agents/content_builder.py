@@ -44,34 +44,34 @@ Max 80 words. English only.
 
     def generate_animal_fact(self, animal: str) -> str:
         return self._ask_gemini(f"""
-Gib mir 1 überraschenden kurzen Tier-Fakt über: {animal}
-Regeln: Max 55 Zeichen, 1 passendes Emoji am Ende, auf Deutsch.
-Beispiel: "Pandas schlafen bis zu 14h am Tag! 🐼"
-NUR den Fakt, kein anderer Text.
+Give me 1 surprising short animal fact about: {animal}
+Rules: Max 55 characters, 1 fitting emoji at the end, in ENGLISH.
+Example: "Pandas sleep up to 14h a day! 🐼"
+ONLY the fact, no other text.
 """)
 
     def generate_title(self, animal: str, hook_text: str) -> str:
         return self._ask_gemini(f"""
-Erstelle einen YouTube Shorts Titel für ein {animal} Video.
+Create a YouTube Shorts title for a {animal} video.
 Hook: {hook_text}
-Regeln: Max 60 Zeichen, 1-2 Emojis, Neugier wecken, auf Deutsch.
-NUR den Titel, kein anderer Text.
+Rules: Max 60 characters, 1-2 emojis, spark curiosity, in ENGLISH.
+ONLY the title, no other text.
 """)
 
     def generate_description(self, animal: str, fact: str) -> str:
         return self._ask_gemini(f"""
-Erstelle eine kurze YouTube Beschreibung für ein {animal} Shorts Video.
-Tier-Fakt: {fact}
-Regeln: 2 Sätze, herzlich, auf Deutsch, max 150 Zeichen.
-NUR die Beschreibung, kein anderer Text.
+Create a short YouTube description for a {animal} Shorts video.
+Animal fact: {fact}
+Rules: 2 sentences, warm tone, in ENGLISH, max 150 characters.
+ONLY the description, no other text.
 """)
 
     def generate_hashtags(self, animal: str) -> list[str]:
         result = self._ask_gemini(f"""
-Erstelle 8 YouTube Hashtags für ein {animal} Video.
-Immer inkludieren: #shorts #tiere #cute
-Rest: tier-spezifisch und trending.
-Antworte NUR als JSON-Array: ["#shorts", "#tiere", ...]
+Create 8 YouTube hashtags for a {animal} video (ENGLISH).
+Always include: #shorts #animals #cute
+Rest: animal-specific and trending.
+Answer ONLY as JSON array: ["#shorts", "#animals", ...]
 """)
         try:
             if result.startswith("```"):
@@ -80,7 +80,7 @@ Antworte NUR als JSON-Array: ["#shorts", "#tiere", ...]
                     result = result[4:]
             return json.loads(result)
         except Exception:
-            return ["#shorts", "#tiere", "#cute", "#animals",
+            return ["#shorts", "#animals", "#cute", "#cuteanimals",
                     "#viral", "#nature", f"#{animal.split()[0]}"]
 
     def generate_music_mood(self, animal: str, hook_style: str) -> str:
