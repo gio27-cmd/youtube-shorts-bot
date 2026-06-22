@@ -62,14 +62,15 @@ INSTAGRAM_USER_ID      = os.getenv("INSTAGRAM_USER_ID")
 # ============================================================
 # BOT TIMING
 # ============================================================
-VIDEOS_PER_DAY        = 2
-# Stufe 3 — "mehr generieren, die besten posten":
-# Es werden VIDEOS_GENERATED_PER_DAY Videos gebaut (auf die HF-Accounts verteilt),
-# bewertet (vorhergesagte Verweildauer + Like-Rate) und nur die besten hochgeladen
-# — max VIDEOS_UPLOADED_MAX, mind. VIDEOS_UPLOADED_MIN, alle über POTENTIAL_THRESHOLD.
-VIDEOS_GENERATED_PER_DAY = 4
-VIDEOS_UPLOADED_MAX      = 3
-VIDEOS_UPLOADED_MIN      = 2
+VIDEOS_PER_DAY        = 3
+# Pro produce-Lauf wird genau EIN Video gebaut, bewertet und (über
+# POTENTIAL_THRESHOLD) hochgeladen. Das Gehirn löst produce bis zu 3x am Tag aus
+# (MAX_PRODUCE_PER_DAY im Scheduler) — jeweils zu selbst gewählten Zeiten. So
+# entstehen 3 Generierungen pro Tag, die jeweils einzeln generiert + hochgeladen
+# werden (statt früher: 1 Lauf baut 4, lädt die besten 3 hoch).
+VIDEOS_GENERATED_PER_DAY = 1
+VIDEOS_UPLOADED_MAX      = 1
+VIDEOS_UPLOADED_MIN      = 1
 POTENTIAL_THRESHOLD      = 55     # 0-100; darunter wird nicht hochgeladen
 UPLOAD_TIME_VIDEO_1   = "14:00"   # Werktags optimal
 UPLOAD_TIME_VIDEO_2   = "20:00"   # Abends optimal
@@ -155,7 +156,7 @@ YOUTUBE_CATEGORY_ID    = "15"       # Tiere & Natur
 YOUTUBE_PRIVACY        = "public"
 YOUTUBE_MADE_FOR_KIDS  = False      # IMMER FALSE! Sonst kein Revenue!
 YOUTUBE_LANGUAGE       = "en"
-YOUTUBE_MAX_UPLOADS_PER_DAY = 2     # Quota schonen
+YOUTUBE_MAX_UPLOADS_PER_DAY = 3     # 3 produce-Läufe/Tag, je 1 Upload
 
 # ============================================================
 # VIRAL SCHWELLENWERTE

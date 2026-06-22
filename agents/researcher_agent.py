@@ -85,12 +85,15 @@ class ResearcherAgent:
                 animal = self._extract_animal_from_title(title)
                 st = stats.get(vid, {})
                 results.append({
-                    "title":     item["snippet"]["title"],
-                    "video_id":  vid,
-                    "animal":    animal,
-                    "views":     st.get("views", 0),
-                    "likes":     st.get("likes", 0),
-                    "like_rate": st.get("like_rate", 0.0),
+                    "title":        item["snippet"]["title"],
+                    "video_id":     vid,
+                    "animal":       animal,
+                    "views":        st.get("views", 0),
+                    "likes":        st.get("likes", 0),
+                    "like_rate":    st.get("like_rate", 0.0),
+                    # Wann das Fremdvideo veröffentlicht wurde (UTC) — Signal für
+                    # gute Posting-Zeiten: starke Videos zeigen, wann gepostet wird.
+                    "published_at": item["snippet"].get("publishedAt", ""),
                 })
             # Stärkste zuerst (Like-Rate als Engagement-Proxy, dann Views)
             results.sort(key=lambda r: (r["like_rate"], r["views"]), reverse=True)
@@ -198,6 +201,13 @@ GOOGLE TRENDS (Score 0-100):
 Identifiziere die 3 stärksten Gelegenheiten für die nächsten 12h und
 analysiere je Gelegenheit MEHRERE Dimensionen (Winkel, Setting, Hook, Hashtags, Stimmung).
 
+Empfiehl außerdem 3 OPTIMALE POSTING-ZEITEN (UTC) für die 3 heutigen Uploads
+("best_post_times_utc", Format "HH:MM"). Leite sie datenbasiert ab: nutze die
+`published_at`-Zeitpunkte der stärksten Trending-Videos oben (wann performt
+Content?) und bedenke, dass das Zielpublikum englischsprachig (v.a. USA) ist —
+gute Fenster sind die Aktivzeiten dort. Verteile die 3 Zeiten sinnvoll über den
+Tag (mind. ~4h Abstand), nicht alle in ein Fenster.
+
 Antworte NUR als JSON:
 {{
   "top_animals": ["tier1", "tier2", "tier3"],
@@ -205,6 +215,7 @@ Antworte NUR als JSON:
   "emerging_trend": "Was gerade aufkommt",
   "avoid": "Was zu vermeiden ist",
   "confidence": 0.85,
+  "best_post_times_utc": ["HH:MM", "HH:MM", "HH:MM"],
   "analysis": "1-2 Sätze: strategischer Gesamteindruck der aktuellen Lage",
   "opportunities": [
     {{
@@ -268,6 +279,7 @@ Antworte NUR als JSON:
                 "emerging_trend": "Unbekannt",
                 "avoid": "",
                 "confidence": 0.5,
+                "best_post_times_utc": ["02:30", "10:30", "18:30"],
                 "analysis": "Fallback-Aggregation (LLM nicht verfügbar)",
                 "opportunities": []
             }
@@ -278,6 +290,7 @@ Antworte NUR als JSON:
             "emerging_trend":  analysis.get("emerging_trend", ""),
             "avoid":           analysis.get("avoid", ""),
             "confidence":      analysis.get("confidence", 0.5),
+            "best_post_times_utc": analysis.get("best_post_times_utc") or ["02:30", "10:30", "18:30"],
             "analysis":        analysis.get("analysis", ""),
             "opportunities":   analysis.get("opportunities", []),
             "youtube_count":   len(youtube_data),

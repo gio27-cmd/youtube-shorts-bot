@@ -74,19 +74,25 @@ def task_produce() -> None:
 
     n_tokens = len(HF_TOKENS)
 
+    # HF-Account-Rotation über LÄUFE hinweg: jeder produce-Lauf baut nur 1 Video,
+    # daher per persistentem KV-Rotor den nächsten Account wählen — sonst träfen
+    # alle 3 Tagesläufe denselben Account und sprengten dessen ZeroGPU-Quota.
+    from agents.memory_agent import MemoryAgent
+    rotor_base = MemoryAgent().next_rotor("hf", n_tokens) if n_tokens else 0
+
     # ---- Phase 1: ALLE Kandidaten bauen (noch KEIN Upload), HF-Accounts rotieren ----
     built = []
     for i, video_plan in enumerate(videos_to_produce):
         video_id = str(uuid.uuid4())[:8]
         animal   = video_plan.get("animal", "golden retriever puppy")
 
-        # HF-Account pro Video rotieren → ZeroGPU-Quota auf alle Accounts verteilen.
+        # HF-Account je Video rotieren → ZeroGPU-Quota auf alle Accounts verteilen.
         if n_tokens:
-            token = HF_TOKENS[i % n_tokens]
+            token = HF_TOKENS[(rotor_base + i) % n_tokens]
             image_gen.token = token
             video_gen.token = token
             music_gen.token = token
-            logger.info(f"🔑 HF-Account {i % n_tokens + 1}/{n_tokens} für dieses Video")
+            logger.info(f"🔑 HF-Account {(rotor_base + i) % n_tokens + 1}/{n_tokens} für dieses Video")
 
         try:
             logger.info(f"--- Baue Kandidat {video_id}: {animal} ---")

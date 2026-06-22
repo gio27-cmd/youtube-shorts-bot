@@ -1,7 +1,7 @@
 /**
  * Gehirn — 24/7 denkender Orchestrator für den Bot (Cloudflare Worker).
  *
- * Cron-Herzschlag (alle 10 Min): liest den Bot-Zustand aus KV, fragt Gemini
+ * Cron-Herzschlag (alle 4 Min): liest den Bot-Zustand aus KV, fragt Gemini
  * "was ist jetzt sinnvoll und warum?", loggt JEDEN Gedanken nach KV (auch
  * 'idle' → sichtbares Nachdenken) und löst nur bei echtem Handlungsbedarf
  * einen GitHub-Lauf aus. Harte Guardrails verhindern Quota-/Kostenausreißer.
@@ -28,21 +28,21 @@ const ACTIONS = ["research", "produce", "analytics", "ab_evaluate", "comments", 
 
 // Mindest-Abstände je Aktion (ms) — Guardrail gegen zu häufiges Auslösen.
 const COOLDOWN = {
-  research: 2.5 * 3600e3,
+  research: 0.9 * 3600e3,
   produce: 4 * 3600e3,
   analytics: 6 * 3600e3,
   ab_evaluate: 6 * 3600e3,
   comments: 2 * 3600e3,
   optimize: 24 * 3600e3,
 };
-const MAX_PRODUCE_PER_DAY = 2;
+const MAX_PRODUCE_PER_DAY = 3;
 
 // Quota-Sparmodus: Das LLM wird pro Tick nur befragt, wenn etwas ansteht
 // (fälliger Task / Signal). Steht nichts an, wird höchstens 1x pro diesem
 // Intervall "nachgedacht" (für die Insight-Analyse) — sonst günstiges Idle
 // ohne LLM-Aufruf. So reicht das kostenlose Gemini-Tageskontingent dauerhaft.
-const LLM_MIN_INTERVAL_MS = 10 * 60e3; // Mindestabstand fürs "Nachdenken" — unter
-// dem Cron-Takt (15 Min), d.h. das Gehirn denkt praktisch JEDEN Tick (24/7 aktiv).
+const LLM_MIN_INTERVAL_MS = 3 * 60e3; // Mindestabstand fürs "Nachdenken" — unter
+// dem Cron-Takt (4 Min), d.h. das Gehirn denkt praktisch JEDEN Tick (24/7 aktiv).
 // Verhindert nur pathologische Doppel-Feuer; gespart wird über die Modell-Kette.
 
 // ---------------------------------------------------------------- GitHub
@@ -157,7 +157,7 @@ async function summarize(env, state) {
     viral_count: (best || {}).viral_count ?? 0,
     best_animal: (best || {}).best_animal || null,
     best_hook: (best || {}).best_hook_style || null,
-    research: { age: ageH(r.saved_at), top_animals: (r.top_animals || []).slice(0, 3), emerging: r.emerging_trend || null, confidence: r.confidence ?? null },
+    research: { age: ageH(r.saved_at), top_animals: (r.top_animals || []).slice(0, 3), emerging: r.emerging_trend || null, confidence: r.confidence ?? null, best_post_times_utc: r.best_post_times_utc || null },
     strategy_planned: ((strat || {}).videos || []).length,
     produces_today: state.produces_today.date === todayUTC() ? state.produces_today.count : 0,
     last_dispatch_age: Object.fromEntries(ACTIONS.filter((a) => a !== "idle").map((a) => [a, ageH(state.last_dispatch[a])])),
@@ -172,8 +172,8 @@ Aktuelle Lage (UTC):
 ${JSON.stringify(ctx, null, 2)}
 
 Erlaubte Aktionen:
-- research: Trends sammeln/analysieren. Sinnvoll wenn research.age alt (>3h) — der Kanal soll Trends früh erkennen.
-- produce: 2 Videos planen, bauen, hochladen. Max ${MAX_PRODUCE_PER_DAY}/Tag (produces_today beachten!). Bevorzugt nachts/morgens UTC.
+- research: Trends sammeln/analysieren. Sinnvoll wenn research.age alt (>1h) — der Kanal soll Trends sehr früh erkennen.
+- produce: 1 Video planen, bauen, hochladen. Max ${MAX_PRODUCE_PER_DAY}/Tag (produces_today beachten!). Die ${MAX_PRODUCE_PER_DAY} Läufe sollen zu den vom Research empfohlenen Posting-Zeiten laufen: research.best_post_times_utc (UTC, "HH:MM"). Wähle produce, wenn die aktuelle UTC-Zeit nahe (±15 Min) an einer noch nicht genutzten dieser Zeiten liegt — sonst auf das nächste Fenster warten.
 - analytics: Performance vorhandener Videos aktualisieren (~1x/Tag, wenn Videos existieren).
 - ab_evaluate: laufende A/B-Tests auswerten.
 - comments: Kommentare der letzten Videos beantworten (nur wenn Videos existieren).
@@ -184,7 +184,7 @@ Reaktive Heuristik (nutze die Signale!):
 - ab_running_due > 0  → ab_evaluate ist überfällig.
 - fresh_videos_under_48h > 0 und comments-Cooldown vorbei → comments (Engagement der frischen Videos nutzen).
 - recent_videos mit hohen/steigenden views → analytics (Daten sichern), ggf. comments (Reichweite mitnehmen).
-- research frisch UND confidence hoch UND produces_today < ${MAX_PRODUCE_PER_DAY} → produce erwägen (auf den Trend aufspringen).
+- UTC-Zeit nahe einem research.best_post_times_utc-Fenster UND produces_today < ${MAX_PRODUCE_PER_DAY} → produce (zur empfohlenen Zeit posten).
 - research veraltet → research.
 - sonst → idle. Sei sparsam, löse nichts ohne Grund aus.
 
@@ -276,12 +276,24 @@ function guard(action, state, runActive) {
 
 // Sicherheitsnetz: garantiert kritische Tasks zeitnah, falls Gemini zu zögerlich
 // ist oder ausfällt. Liefert die fällige Aktion oder null.
-function safetyNet(state) {
+function safetyNet(state, ctxData) {
   const d = new Date(), H = d.getUTCHours(), M = d.getUTCMinutes(), W = d.getUTCDay();
   const slot = M < 15 ? 0 : 30;
   const cand = [];
-  if (H === 2 && slot === 30) cand.push("produce");
-  if (H % 3 === 0 && slot === 0) cand.push("research");
+  // produce zu den vom Research empfohlenen Posting-Zeiten (Fallback: feste
+  // Slots, falls noch kein Research vorliegt). guard() begrenzt auf
+  // MAX_PRODUCE_PER_DAY + Cooldown. Fenster = 15 Min ab der empfohlenen Zeit,
+  // damit ein 4-Min-Tick es sicher trifft.
+  const postTimes = (ctxData && ctxData.research && ctxData.research.best_post_times_utc)
+    || ["02:30", "10:30", "18:30"];
+  const nowMin = H * 60 + M;
+  for (const t of postTimes) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
+    if (!m) continue;
+    const tm = (+m[1]) * 60 + (+m[2]);
+    if (nowMin >= tm && nowMin < tm + 15) { cand.push("produce"); break; }
+  }
+  if (slot === 0) cand.push("research");   // stündlich
   if (H === 10 && slot === 0) cand.push("analytics");
   if (H === 12 && slot === 0) cand.push("ab_evaluate");
   if ((H === 9 || H === 15 || H === 21) && slot === 0) cand.push("comments");
@@ -306,7 +318,7 @@ async function cycle(env, ctx) {
   // Quota-Sparmodus: Das LLM nur befragen, wenn wirklich etwas ansteht —
   // ein planmäßig fälliger Task, ein konkretes Signal, oder höchstens ~1x/Std
   // fürs strategische Nachdenken. Sonst günstiges Idle ohne LLM-Aufruf.
-  const due = safetyNet(state);
+  const due = safetyNet(state, ctxData);
   const hasSignal = !!ctxData && (ctxData.ab_running_due > 0 || ctxData.fresh_videos_under_48h > 0);
   const sinceLLM = state.last_llm_at ? Date.now() - Date.parse(state.last_llm_at) : Infinity;
   const insightDue = sinceLLM > LLM_MIN_INTERVAL_MS;
@@ -332,7 +344,7 @@ async function cycle(env, ctx) {
 
   // Sicherheitsnetz: wenn Gemini idle wählt, aber ein kritischer Task fällig ist.
   if (!g.ok && decision.action === "idle") {
-    const net = safetyNet(state);
+    const net = safetyNet(state, ctxData);
     if (net) {
       const ng = guard(net, state, runActive);
       if (ng.ok) { decision = { action: net, reasoning: "Sicherheitsnetz: planmäßiger " + net + " fällig.", confidence: 0.6 }; g = ng; source = source + "+net"; }
@@ -365,6 +377,7 @@ async function cycle(env, ctx) {
       videos_total: ctxData.videos_total,
       top_recent: ctxData.recent_videos[0] || null,
       produces_today: ctxData.produces_today,
+      post_times: ctxData.research.best_post_times_utc || null,
     };
   }
 

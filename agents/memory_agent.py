@@ -184,6 +184,18 @@ class MemoryAgent:
     def get_research(self) -> dict:
         return self._kv_read(KV_KEY_RESEARCH) or {}
 
+    def next_rotor(self, name: str, modulo: int) -> int:
+        """Persistenter Rundlauf-Zähler in KV — verteilt z.B. die HF-Accounts
+        über mehrere ephemere produce-Läufe hinweg (jeder Lauf baut nur 1 Video,
+        daher reicht in-Lauf-Rotation nicht). Gibt den aktuellen Index zurück
+        und erhöht ihn für den nächsten Aufruf."""
+        if modulo <= 0:
+            return 0
+        key = f"rotor:{name}"
+        cur = int((self._kv_read(key) or {}).get("i", 0))
+        self._kv_write(key, {"i": (cur + 1) % modulo})
+        return cur % modulo
+
     def save_strategy(self, strategy: dict) -> None:
         strategy["saved_at"] = datetime.now().isoformat()
         self._kv_write(KV_KEY_STRATEGY, strategy)
