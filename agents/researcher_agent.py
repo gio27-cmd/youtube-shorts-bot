@@ -197,14 +197,19 @@ Antworte NUR als JSON:
         reddit_data  = self.search_reddit_hot()
         trends       = self.get_google_trends()
 
-        # Mindestens 2 von 3 Quellen müssen funktionieren
+        # Mindestens 1 Quelle muss funktionieren. YouTube ist die einzige aus
+        # GitHub Actions zuverlässige Quelle: Reddit braucht API-Credentials und
+        # Google Trends (pytrends) wird von Googles 429-Drossel auf CI-IPs fast
+        # immer geblockt. Eine höhere Schwelle führte dazu, dass research:latest
+        # nie aktualisiert wurde → das Gehirn blieb dauerhaft im "research"-Modus
+        # hängen und produzierte nie. YouTube + Gemini-Analyse reichen aus.
         sources_ok = sum([
             len(youtube_data) > 0,
             len(reddit_data) > 0,
             len(trends) > 0
         ])
-        if sources_ok < 2:
-            logger.error("Researcher: Zu wenige Datenquellen verfügbar")
+        if sources_ok < 1:
+            logger.error("Researcher: Keine Datenquelle verfügbar")
             return {}
 
         try:
