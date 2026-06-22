@@ -13,7 +13,7 @@ import re
 import ffmpeg
 from loguru import logger
 from config.settings import (
-    TEMP_DIR,
+    TEMP_DIR, VIDEO_DURATION_SEC,
     FFMPEG_FONT_SIZE_HOOK, FFMPEG_FONT_SIZE_FACT,
     FFMPEG_FONT_COLOR, FFMPEG_FONT_BORDER, FFMPEG_MUSIC_VOLUME,
     FFMPEG_FONT_FILE
@@ -56,6 +56,11 @@ class PostProduction:
         # Optionale Font-Datei (auf dem VPS gesetzt) für alle drawtext-Aufrufe
         font_kw = {"fontfile": FFMPEG_FONT_FILE} if FFMPEG_FONT_FILE else {}
 
+        # Echte Videodauer für den Fade-out (zeitbasiert, kein Frame-Ausdruck).
+        dur = self._duration(video_path)
+        fade_d = 0.33
+        fade_out_start = max(dur - fade_d, 0.0)
+
         try:
             # Video Input
             video_in = ffmpeg.input(video_path)
@@ -77,10 +82,11 @@ class PostProduction:
             # Video Filter Chain
             video_filtered = (
                 video_in.video
-                # Fade in
-                .filter("fade", type="in", start_frame=0, nb_frames=8)
-                # Fade out (letzte 8 Frames bei 24fps ≈ letzte 0.33 Sek)
-                .filter("fade", type="out", start_frame="(duration*24-8)", nb_frames=8)
+                # Fade in (erste ~0.33 Sek)
+                .filter("fade", type="in", start_time=0, duration=fade_d)
+                # Fade out (letzte ~0.33 Sek) — zeitbasiert, da der fade-Filter
+                # bei start_frame KEINE Ausdrücke akzeptiert (war der Crash-Grund).
+                .filter("fade", type="out", start_time=fade_out_start, duration=fade_d)
                 # Hook-Text: erste 2 Sekunden, oben zentriert
                 .drawtext(
                     text=hook_escaped,
@@ -126,9 +132,22 @@ class PostProduction:
             else:
                 raise RuntimeError("Output-Verifikation fehlgeschlagen")
 
+        except ffmpeg.Error as e:
+            # Die eigentliche Ursache steht in ffmpegs stderr, nicht in str(e).
+            stderr = e.stderr.decode("utf-8", "replace") if getattr(e, "stderr", None) else ""
+            logger.error(f"Post-Produktion ffmpeg-Fehler: {stderr[-1500:] or e}")
+            raise
         except Exception as e:
             logger.error(f"Post-Produktion Fehler: {e}")
             raise
+
+    def _duration(self, video_path: str) -> float:
+        """Liest die Videodauer in Sekunden; Fallback auf die Soll-Länge."""
+        try:
+            probe = ffmpeg.probe(video_path)
+            return float(probe["format"]["duration"])
+        except Exception:
+            return float(VIDEO_DURATION_SEC)
 
     def _has_audio(self, video_path: str) -> bool:
         """Prüft ob die Videodatei eine Audiospur enthält."""
