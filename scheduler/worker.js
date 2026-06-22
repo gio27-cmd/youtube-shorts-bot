@@ -144,6 +144,10 @@ async function summarize(env, state) {
     age_h: Math.round(ageHnum(v.uploaded_at) || 0), retention: Math.round(v.avg_view_percentage || 0),
   }));
   const freshUnder48 = dated.filter((v) => { const h = ageHnum(v.uploaded_at); return h != null && h < 48; }).length;
+  // ECHTE Tagesproduktion = heute hochgeladene Videos (uploaded_at wird nur bei
+  // erfolgreichem Upload gesetzt). Gescheiterte produce-Läufe (z.B. HF-Quota)
+  // zählen NICHT — sonst verbrennt ein Fehlschlag einen der 3 Tages-Slots.
+  const uploadedToday = dated.filter((v) => (v.uploaded_at || "").slice(0, 10) === todayUTC()).length;
   const abDue = abtests.filter((a) => a.status === "running" && a.started_at && (ageHnum(a.started_at) || 0) > 48).length;
   const r = research || {};
 
@@ -159,7 +163,7 @@ async function summarize(env, state) {
     best_hook: (best || {}).best_hook_style || null,
     research: { age: ageH(r.saved_at), top_animals: (r.top_animals || []).slice(0, 3), emerging: r.emerging_trend || null, confidence: r.confidence ?? null, best_post_times_utc: r.best_post_times_utc || null },
     strategy_planned: ((strat || {}).videos || []).length,
-    produces_today: state.produces_today.date === todayUTC() ? state.produces_today.count : 0,
+    produces_today: uploadedToday,
     last_dispatch_age: Object.fromEntries(ACTIONS.filter((a) => a !== "idle").map((a) => [a, ageH(state.last_dispatch[a])])),
   };
 }
@@ -173,7 +177,7 @@ ${JSON.stringify(ctx, null, 2)}
 
 Erlaubte Aktionen:
 - research: Trends sammeln/analysieren. Sinnvoll wenn research.age alt (>1h) — der Kanal soll Trends sehr früh erkennen.
-- produce: 1 Video planen, bauen, hochladen. Max ${MAX_PRODUCE_PER_DAY}/Tag (produces_today beachten!). Die ${MAX_PRODUCE_PER_DAY} Läufe sollen zu den vom Research empfohlenen Posting-Zeiten laufen: research.best_post_times_utc (UTC, "HH:MM"). Wähle produce, wenn die aktuelle UTC-Zeit nahe (±15 Min) an einer noch nicht genutzten dieser Zeiten liegt — sonst auf das nächste Fenster warten.
+- produce: 1 Video planen, bauen, hochladen. produces_today = heute bereits ERFOLGREICH hochgeladene Videos; Ziel sind ${MAX_PRODUCE_PER_DAY}/Tag. Die Läufe sollen zu den vom Research empfohlenen Posting-Zeiten laufen: research.best_post_times_utc (UTC, "HH:MM"). Wähle produce, wenn produces_today < ${MAX_PRODUCE_PER_DAY} UND die aktuelle UTC-Zeit nahe (±15 Min) an einer Posting-Zeit liegt — sonst auf das nächste Fenster warten. (Ein gescheiterter Lauf erhöht produces_today nicht, wird also automatisch erneut versucht.)
 - analytics: Performance vorhandener Videos aktualisieren (~1x/Tag, wenn Videos existieren).
 - ab_evaluate: laufende A/B-Tests auswerten.
 - comments: Kommentare der letzten Videos beantworten (nur wenn Videos existieren).
@@ -260,12 +264,14 @@ async function openrouterJson(env, prompt) {
 
 // ---------------------------------------------------------------- guardrails
 
-function guard(action, state, runActive) {
+function guard(action, state, runActive, uploadedToday) {
   if (action === "idle") return { ok: false, reason: "idle" };
   if (runActive) return { ok: false, reason: "Lauf bereits aktiv – warte" };
   if (action === "produce") {
-    const c = state.produces_today.date === todayUTC() ? state.produces_today.count : 0;
-    if (c >= MAX_PRODUCE_PER_DAY) return { ok: false, reason: `Tageslimit ${MAX_PRODUCE_PER_DAY} produce erreicht` };
+    // Limit zählt ERFOLGREICHE Uploads heute, nicht Dispatches. So wird ein
+    // gescheiterter Lauf (HF-Quota) am nächsten Posting-Fenster neu versucht,
+    // statt einen Slot zu verbrennen. Der 4h-Cooldown verhindert Hämmern.
+    if ((uploadedToday || 0) >= MAX_PRODUCE_PER_DAY) return { ok: false, reason: `Tageslimit ${MAX_PRODUCE_PER_DAY} Uploads erreicht` };
   }
   const last = state.last_dispatch[action];
   if (last && Date.now() - Date.parse(last) < (COOLDOWN[action] || 0)) {
@@ -340,13 +346,16 @@ async function cycle(env, ctx) {
     decision = { action: "idle", reasoning: reason, confidence: 0.4, insight: state.insight || null };
   }
 
-  let g = guard(decision.action, state, runActive);
+  // Tageslimit zählt erfolgreiche Uploads. Ohne Kontext (KV nicht lesbar) blocken
+  // wir produce vorsichtshalber (so als ob das Limit erreicht wäre).
+  const uploadedToday = ctxData ? ctxData.produces_today : MAX_PRODUCE_PER_DAY;
+  let g = guard(decision.action, state, runActive, uploadedToday);
 
   // Sicherheitsnetz: wenn Gemini idle wählt, aber ein kritischer Task fällig ist.
   if (!g.ok && decision.action === "idle") {
     const net = safetyNet(state, ctxData);
     if (net) {
-      const ng = guard(net, state, runActive);
+      const ng = guard(net, state, runActive, uploadedToday);
       if (ng.ok) { decision = { action: net, reasoning: "Sicherheitsnetz: planmäßiger " + net + " fällig.", confidence: 0.6 }; g = ng; source = source + "+net"; }
     }
   }
@@ -358,6 +367,8 @@ async function cycle(env, ctx) {
       dispatched = decision.action;
       state.last_dispatch[decision.action] = new Date().toISOString();
       if (decision.action === "produce") {
+        // Reiner Dispatch-Trace (wie oft heute ausgelöst). Das Tageslimit zählt
+        // erfolgreiche Uploads (guard via uploadedToday), NICHT diesen Zähler.
         const today = todayUTC();
         if (state.produces_today.date !== today) state.produces_today = { date: today, count: 0 };
         state.produces_today.count += 1;
