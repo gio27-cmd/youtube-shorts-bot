@@ -13,6 +13,12 @@ load_dotenv()
 GEMINI_API_KEY        = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL          = "gemini-2.5-flash"
 
+# OpenRouter — Fallback-LLM, falls Gemini ausfällt (Quota/Rate-Limit/Downtime).
+# Alle Gemini-Agents nutzen config.llm.LLMClient, der bei Gemini-Fehlern
+# automatisch hierauf ausweicht. Ohne Key bleibt es beim reinen Gemini-Verhalten.
+OPENROUTER_API_KEY    = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_MODEL      = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
+
 YOUTUBE_CLIENT_ID     = os.getenv("YOUTUBE_CLIENT_ID")
 YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
 YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")

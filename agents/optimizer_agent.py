@@ -4,9 +4,8 @@ Läuft jeden Sonntag um 23:00 Uhr.
 """
 
 import json
-import google.generativeai as genai
 from loguru import logger
-from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from config.llm import LLMClient
 from agents.memory_agent import MemoryAgent
 from agents.ab_tester import ABTester
 
@@ -16,8 +15,8 @@ class OptimizerAgent:
     def __init__(self):
         self.memory   = MemoryAgent()
         self.ab_tester = ABTester()
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.gemini   = genai.GenerativeModel(GEMINI_MODEL)
+        # LLMClient: Gemini primär, OpenRouter als Fallback (siehe config/llm.py)
+        self.gemini   = LLMClient()
 
     def run_weekly_optimization(self) -> dict:
         logger.info("🎯 Optimizer Agent: Wöchentliche Analyse")

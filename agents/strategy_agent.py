@@ -5,14 +5,13 @@ Läuft täglich um 06:00 Uhr.
 """
 
 import json
-import google.generativeai as genai
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 from config.settings import (
-    GEMINI_API_KEY, GEMINI_MODEL,
     HOOK_TEMPLATES, ANIMAL_CATEGORIES,
     UPLOAD_TIME_VIDEO_1, UPLOAD_TIME_VIDEO_2
 )
+from config.llm import LLMClient
 from agents.memory_agent import MemoryAgent
 
 
@@ -20,8 +19,8 @@ class StrategyAgent:
 
     def __init__(self):
         self.memory = MemoryAgent()
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.gemini = genai.GenerativeModel(GEMINI_MODEL)
+        # LLMClient: Gemini primär, OpenRouter als Fallback (siehe config/llm.py)
+        self.gemini = LLMClient()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
     def plan_next_videos(self) -> list[dict]:

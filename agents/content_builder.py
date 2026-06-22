@@ -4,17 +4,16 @@ Nutzt Gemini 2.5 Flash (kostenlos).
 """
 
 import json
-import google.generativeai as genai
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
-from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from config.llm import LLMClient
 
 
 class ContentBuilder:
 
     def __init__(self):
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.gemini = genai.GenerativeModel(GEMINI_MODEL)
+        # LLMClient: Gemini primär, OpenRouter als Fallback (siehe config/llm.py)
+        self.gemini = LLMClient()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
     def _ask_gemini(self, prompt: str) -> str:

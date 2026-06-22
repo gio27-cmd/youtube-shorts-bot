@@ -5,7 +5,6 @@ Läuft alle 6 Stunden.
 """
 
 import praw
-import google.generativeai as genai
 from pytrends.request import TrendReq
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
@@ -13,11 +12,11 @@ from datetime import datetime, timedelta
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 from config.settings import (
-    GEMINI_API_KEY, GEMINI_MODEL,
     YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN,
     REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT,
     REDDIT_SUBREDDITS, ANIMAL_CATEGORIES
 )
+from config.llm import LLMClient
 from agents.memory_agent import MemoryAgent
 
 
@@ -25,8 +24,8 @@ class ResearcherAgent:
 
     def __init__(self):
         self.memory = MemoryAgent()
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.gemini = genai.GenerativeModel(GEMINI_MODEL)
+        # LLMClient: Gemini primär, OpenRouter als Fallback (siehe config/llm.py)
+        self.gemini = LLMClient()
 
     # ----------------------------------------------------------
     # YOUTUBE TRENDING
