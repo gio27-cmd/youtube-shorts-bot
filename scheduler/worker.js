@@ -29,7 +29,11 @@ const ACTIONS = ["research", "produce", "analytics", "ab_evaluate", "comments", 
 // Mindest-Abstände je Aktion (ms) — Guardrail gegen zu häufiges Auslösen.
 const COOLDOWN = {
   research: 0.9 * 3600e3,
-  produce: 4 * 3600e3,
+  // produce: nur kurzer Anti-Doppelfeuer-Schutz innerhalb EINES Posting-Fensters
+  // (±15 Min). Die Tagesverteilung übernehmen die research-Posting-Zeiten + das
+  // Upload-Limit, NICHT der Cooldown. Früher 4h → blockierte nach einem
+  // gescheiterten Lauf alle weiteren Fenster des Tages.
+  produce: 0.5 * 3600e3,
   analytics: 6 * 3600e3,
   ab_evaluate: 6 * 3600e3,
   comments: 2 * 3600e3,
