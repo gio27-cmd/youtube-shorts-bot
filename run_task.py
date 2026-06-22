@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 from loguru import logger
 
-from config.settings import TEMP_DIR, LOGS_DIR, HF_TOKENS
+from config.settings import TEMP_DIR, LOGS_DIR, HF_TOKENS, VIDEOS_GENERATED_PER_DAY
 
 
 def _setup_logging() -> None:
@@ -56,7 +56,7 @@ def task_produce() -> None:
     from agents.music_generator import MusicGenerator
     from agents.post_production import PostProduction
     from agents.uploader import Uploader
-    from agents.ab_tester import ABTester
+    from agents.selector import Selector
 
     strategy   = StrategyAgent()
     content_b  = ContentBuilder()
@@ -65,14 +65,17 @@ def task_produce() -> None:
     music_gen  = MusicGenerator()
     post_prod  = PostProduction()
     uploader   = Uploader()
-    ab_tester  = ABTester()
+    selector   = Selector()
 
-    videos_to_produce = strategy.plan_next_videos()
+    videos_to_produce = strategy.plan_next_videos(VIDEOS_GENERATED_PER_DAY)
     if not videos_to_produce:
         logger.error("Keine Videos geplant!")
         return
 
     n_tokens = len(HF_TOKENS)
+
+    # ---- Phase 1: ALLE Kandidaten bauen (noch KEIN Upload), HF-Accounts rotieren ----
+    built = []
     for i, video_plan in enumerate(videos_to_produce):
         video_id = str(uuid.uuid4())[:8]
         animal   = video_plan.get("animal", "golden retriever puppy")
@@ -86,34 +89,68 @@ def task_produce() -> None:
             logger.info(f"🔑 HF-Account {i % n_tokens + 1}/{n_tokens} für dieses Video")
 
         try:
-            logger.info(f"--- Produziere Video {video_id}: {animal} ---")
-
+            logger.info(f"--- Baue Kandidat {video_id}: {animal} ---")
             content    = content_b.build_content(video_plan)
             image_path = image_gen.generate(content["image_prompt"], video_id)
             video_path = video_gen.generate(image_path, content["video_prompt"], video_id)
             music_path = music_gen.generate(content["music_mood"], video_id)
+            final      = post_prod.produce(video_path, music_path, content, video_id, variant="a")
 
-            final_a = post_prod.produce(video_path, music_path, content, video_id, variant="a")
-            final_b = post_prod.produce(video_path, music_path, content, video_id, variant="b")
-
-            vid_id_a = uploader.upload_video(final_a, content, video_plan, variant="a")
-            vid_id_b = uploader.upload_video(final_b, content, video_plan, variant="b")
-
-            ab_tester.register_ab_test(
-                vid_id_a, vid_id_b,
-                content["hook_text_a"], content["hook_text_b"],
-                video_plan.get("hook_style", "shock")
-            )
-
-            post_prod.cleanup_temp(video_id)
-            logger.info(f"✅ Video {video_id} fertig! IDs: {vid_id_a}, {vid_id_b}")
+            built.append({
+                "video_id":    video_id,
+                "final":       final,
+                "content":     content,
+                "plan":        video_plan,
+                # Felder für den Selector:
+                "animal":      animal,
+                "angle":       video_plan.get("angle"),
+                "setting":     video_plan.get("setting"),
+                "hook_style":  video_plan.get("hook_style"),
+                "hook_text_a": content.get("hook_text_a"),
+                "title":       content.get("title"),
+                "hashtags":    content.get("hashtags"),
+            })
+            logger.info(f"🧱 Kandidat gebaut: {video_id} ({animal})")
         except Exception as e:
-            logger.error(f"❌ Video {video_id} fehlgeschlagen: {e}")
+            logger.error(f"❌ Bau von {video_id} fehlgeschlagen: {e}")
             try:
                 post_prod.cleanup_temp(video_id)
             except Exception:
                 pass
-            continue
+
+    if not built:
+        logger.error("Kein Kandidat erfolgreich gebaut.")
+        return
+
+    # ---- Phase 2: Potenzial bewerten (Verweildauer + Likes) + die besten wählen ----
+    scored = selector.evaluate(built)
+    chosen = selector.select(scored)
+    chosen_ids = {c["video_id"] for c in chosen}
+
+    # ---- Phase 3: nur die besten hochladen, Rest verwerfen, alles aufräumen ----
+    uploaded = 0
+    for c in built:
+        vid = c["video_id"]
+        if vid in chosen_ids:
+            try:
+                plan = c["plan"]
+                plan["predicted_potential"] = round(c.get("potential", 0))
+                yt_id = uploader.upload_video(c["final"], c["content"], plan, variant="a")
+                uploaded += 1
+                logger.info(
+                    f"⬆️  Hochgeladen ({c['animal']}, Potenzial {c.get('potential', 0):.0f}): "
+                    f"https://youtube.com/shorts/{yt_id}"
+                )
+            except Exception as e:
+                logger.error(f"Upload fehlgeschlagen {vid}: {e}")
+        else:
+            logger.info(f"🗑️  Verworfen (Potenzial {c.get('potential', 0):.0f}): {c['animal']}")
+        try:
+            post_prod.cleanup_temp(vid)
+        except Exception:
+            pass
+
+    logger.info(f"✅ Produce fertig: {uploaded} von {len(built)} Kandidaten hochgeladen.")
 
 
 def task_analytics() -> None:

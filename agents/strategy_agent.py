@@ -23,8 +23,8 @@ class StrategyAgent:
         self.gemini = LLMClient()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
-    def plan_next_videos(self) -> list[dict]:
-        logger.info("📊 Strategy Agent: Plane nächste Videos")
+    def plan_next_videos(self, count: int = 2) -> list[dict]:
+        logger.info(f"📊 Strategy Agent: Plane {count} Video-Kandidaten")
 
         best     = self.memory.get_best_patterns()
         worst    = self.memory.get_worst_patterns()
@@ -50,9 +50,10 @@ REGEL: Widersprechen sich eigene Erfahrung und externe Trends, folge der EIGENEN
 Erfahrung. Gibt es noch keine eigene Erfahrung (Kanal neu), stütze dich auf die
 'opportunities' aus den Beobachtungen.
 
-Plane EXAKT 2 Videos für heute.
-Video 1 → Upload um {UPLOAD_TIME_VIDEO_1} Uhr
-Video 2 → Upload um {UPLOAD_TIME_VIDEO_2} Uhr
+Plane EXAKT {count} VERSCHIEDENE Video-Kandidaten für heute (Vielfalt bei Tier,
+Winkel und Hook). Aus diesen werden später die besten zum Upload ausgewählt.
+Verteile sinnvolle Upload-Zeiten über den Tag (z.B. zwischen {UPLOAD_TIME_VIDEO_1}
+und {UPLOAD_TIME_VIDEO_2} Uhr).
 
 Analysiere für jedes Video ALLE Dimensionen:
 - animal: Welches Tier
@@ -67,7 +68,7 @@ Analysiere für jedes Video ALLE Dimensionen:
 - upload_time: Uhrzeit
 - reasoning: kurze, datenbasierte Begründung (nenne, ob eher eigene Erfahrung oder Trend ausschlaggebend war)
 
-Antworte NUR als JSON-Array mit genau 2 Elementen.
+Antworte NUR als JSON-Array mit genau {count} Elementen.
 """
 
         try:
@@ -78,12 +79,13 @@ Antworte NUR als JSON-Array mit genau 2 Elementen.
                 if text.startswith("json"):
                     text = text[4:]
             plan = json.loads(text)
-            if not isinstance(plan, list) or len(plan) != 2:
+            if not isinstance(plan, list) or not plan:
                 raise ValueError("Ungültiges Format")
         except Exception as e:
             logger.error(f"Strategy Gemini error: {e} — nutze Fallback")
             plan = self._fallback_plan()
 
+        plan = plan[:count]   # nie mehr als gewünscht
         self.memory.save_strategy({"videos": plan})
         logger.info(f"✅ Strategie: {[p['animal'] for p in plan]}")
         return plan

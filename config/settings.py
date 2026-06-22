@@ -63,6 +63,14 @@ INSTAGRAM_USER_ID      = os.getenv("INSTAGRAM_USER_ID")
 # BOT TIMING
 # ============================================================
 VIDEOS_PER_DAY        = 2
+# Stufe 3 — "mehr generieren, die besten posten":
+# Es werden VIDEOS_GENERATED_PER_DAY Videos gebaut (auf die HF-Accounts verteilt),
+# bewertet (vorhergesagte Verweildauer + Like-Rate) und nur die besten hochgeladen
+# — max VIDEOS_UPLOADED_MAX, mind. VIDEOS_UPLOADED_MIN, alle über POTENTIAL_THRESHOLD.
+VIDEOS_GENERATED_PER_DAY = 4
+VIDEOS_UPLOADED_MAX      = 3
+VIDEOS_UPLOADED_MIN      = 2
+POTENTIAL_THRESHOLD      = 55     # 0-100; darunter wird nicht hochgeladen
 UPLOAD_TIME_VIDEO_1   = "14:00"   # Werktags optimal
 UPLOAD_TIME_VIDEO_2   = "20:00"   # Abends optimal
 PRODUCTION_START_TIME = "02:00"   # Nachts starten (WAN 2.2 Queue leer)

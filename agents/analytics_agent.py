@@ -99,8 +99,9 @@ class AnalyticsAgent:
                     )
                     self.memory.update_video_analytics(video_id, {
                         checkpoint_key: analytics,
-                        "views":              analytics.get("views", 0),
-                        "avg_view_percentage": analytics.get("avg_view_percentage", 0)
+                        "views":               analytics.get("views", 0),
+                        "avg_view_percentage": analytics.get("avg_view_percentage", 0),
+                        "likes":               analytics.get("likes", 0),
                     })
                     logger.info(
                         f"Analytics updated: {video_id} | "

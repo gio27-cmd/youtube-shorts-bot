@@ -96,11 +96,18 @@ class MemoryAgent:
         existing.update(analytics)
         existing["analytics_updated_at"] = datetime.now().isoformat()
 
-        # Kategorisierung
-        views = analytics.get("views", 0)
-        if views >= VIRAL_THRESHOLD_VIEWS:
+        # Qualität primär an VERWEILDAUER (Retention) + LIKE-RATE festmachen — das
+        # sind die echten Erfolgssignale und funktionieren auch bei wenigen Views
+        # (neuer Kanal). Views fließen nur als Bonus/Override bei viralem Reach ein.
+        views     = existing.get("views", 0)
+        likes     = existing.get("likes", 0)
+        retention = existing.get("avg_view_percentage", 0)        # 0-100
+        like_rate = round(likes / views, 4) if views else 0.0
+        existing["like_rate"] = like_rate
+
+        if (retention >= 60 and like_rate >= 0.04) or views >= VIRAL_THRESHOLD_VIEWS:
             existing["performance"] = "viral"
-        elif views >= GOOD_THRESHOLD_VIEWS:
+        elif retention >= 40 or views >= GOOD_THRESHOLD_VIEWS:
             existing["performance"] = "good"
         else:
             existing["performance"] = "bad"

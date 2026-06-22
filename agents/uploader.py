@@ -102,12 +102,16 @@ class Uploader:
         self.memory.save_video({
             "video_id":    video_id,
             "animal":      video_plan.get("animal"),
+            "angle":       video_plan.get("angle"),
+            "setting":     video_plan.get("setting"),
             "hook_style":  video_plan.get("hook_style"),
             "hook_text":   hook_text,
             "upload_time": video_plan.get("upload_time"),
             "upload_day":  now.strftime("%A").lower(),
             "variant":     variant,
             "title":       title,
+            # Vorhergesagtes Potenzial (Selector) — später vs. echte Performance lernbar
+            "predicted_potential": video_plan.get("predicted_potential"),
             "uploaded_at": now.isoformat()
         })
 

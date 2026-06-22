@@ -55,16 +55,46 @@ class ResearcherAgent:
                 part="snippet"
             ).execute()
 
+            items = response.get("items", [])
+            ids = [it["id"]["videoId"] for it in items if it.get("id", {}).get("videoId")]
+
+            # Echte Kennzahlen der Fremdvideos nachladen (search liefert keine Stats).
+            # So lernt der Bot aus externer Performance: Views + Like-Rate.
+            stats = {}
+            try:
+                if ids:
+                    stat_resp = youtube.videos().list(
+                        part="statistics", id=",".join(ids)
+                    ).execute()
+                    for sv in stat_resp.get("items", []):
+                        s = sv.get("statistics", {})
+                        views = int(s.get("viewCount", 0))
+                        likes = int(s.get("likeCount", 0))
+                        stats[sv["id"]] = {
+                            "views": views,
+                            "likes": likes,
+                            "like_rate": round(likes / views, 4) if views else 0.0,
+                        }
+            except Exception as e:
+                logger.warning(f"YouTube-Statistiken nicht ladbar: {e}")
+
             results = []
-            for item in response.get("items", []):
+            for item in items:
+                vid = item["id"]["videoId"]
                 title = item["snippet"]["title"].lower()
                 animal = self._extract_animal_from_title(title)
+                st = stats.get(vid, {})
                 results.append({
-                    "title": item["snippet"]["title"],
-                    "video_id": item["id"]["videoId"],
-                    "animal": animal
+                    "title":     item["snippet"]["title"],
+                    "video_id":  vid,
+                    "animal":    animal,
+                    "views":     st.get("views", 0),
+                    "likes":     st.get("likes", 0),
+                    "like_rate": st.get("like_rate", 0.0),
                 })
-            logger.info(f"YouTube: {len(results)} trending videos gefunden")
+            # Stärkste zuerst (Like-Rate als Engagement-Proxy, dann Views)
+            results.sort(key=lambda r: (r["like_rate"], r["views"]), reverse=True)
+            logger.info(f"YouTube: {len(results)} trending videos (mit Kennzahlen) gefunden")
             return results
         except Exception as e:
             logger.error(f"YouTube trending error: {e}")
