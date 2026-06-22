@@ -102,18 +102,25 @@ Gib NUR den englischen Prompt zurück.
         """Hauptfunktion: Generiert alle Inhalte für ein Video."""
         animal     = video_plan.get("animal", "golden retriever puppy")
         style      = video_plan.get("image_style", "natural close-up")
+        angle      = video_plan.get("angle", "")
+        setting    = video_plan.get("setting", "")
         hook_style = video_plan.get("hook_style", "shock")
         hook_a     = video_plan.get("hook_text_a", "You won't believe this 😱")
         hook_b     = video_plan.get("hook_text_b", "Wait for it... 🤯")
 
+        # Winkel + Setting in den Bild-/Video-Stil einweben, damit die
+        # strategische Analyse das tatsächlich generierte Material beeinflusst.
+        full_style = ", ".join(s for s in [style, angle, setting] if s)
+
         logger.info(f"📝 Content Builder: Generiere für {animal}")
 
-        video_prompt  = self.generate_video_prompt(animal, style)
-        image_prompt  = self.generate_image_prompt(animal, style)
+        video_prompt  = self.generate_video_prompt(animal, full_style)
+        image_prompt  = self.generate_image_prompt(animal, full_style)
         animal_fact   = self.generate_animal_fact(animal)
         title         = self.generate_title(animal, hook_a)
         description   = self.generate_description(animal, animal_fact)
-        hashtags      = self.generate_hashtags(animal)
+        # Vom Strategen geplante Hashtags bevorzugen, sonst selbst generieren.
+        hashtags      = video_plan.get("hashtags") or self.generate_hashtags(animal)
         music_mood    = video_plan.get("music_mood") or \
                         self.generate_music_mood(animal, hook_style)
 

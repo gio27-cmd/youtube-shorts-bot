@@ -33,36 +33,39 @@ class StrategyAgent:
         ab_results = self.memory.get_all_ab_results()
 
         prompt = f"""
-Du bist ein YouTube Shorts Stratege für einen Tier-Video Kanal.
+Du bist ein datengetriebener YouTube-Shorts-Stratege für einen Tier-Kanal.
 
-BEWÄHRTE MUSTER (was viral geht):
-{json.dumps(best, ensure_ascii=False)}
+Es gibt ZWEI Wissensquellen — gewichte sie BEWUSST:
 
-ZU VERMEIDEN (was schlecht performt):
-{json.dumps(worst, ensure_ascii=False)}
+🧠 EIGENE ERFAHRUNG (höchste Priorität — hat bei UNS nachweislich funktioniert):
+- Bewährte Muster (viral): {json.dumps(best, ensure_ascii=False)}
+- Zu vermeiden (schlecht gelaufen): {json.dumps(worst, ensure_ascii=False)}
+- Letzte 10 Videos (Performance): {json.dumps(last_10, ensure_ascii=False)}
+- A/B-Test-Ergebnisse: {json.dumps(ab_results[-5:] if ab_results else [], ensure_ascii=False)}
 
-AKTUELLE TRENDS (letzte 6h Research):
+🌍 EXTERNE BEOBACHTUNGEN (Trends da draußen — nutzen, aber der eigenen Erfahrung unterordnen):
 {json.dumps(research, ensure_ascii=False)}
 
-LETZTE 10 VIDEOS (Performance):
-{json.dumps(last_10, ensure_ascii=False)}
-
-A/B TEST ERGEBNISSE:
-{json.dumps(ab_results[-5:] if ab_results else [], ensure_ascii=False)}
+REGEL: Widersprechen sich eigene Erfahrung und externe Trends, folge der EIGENEN
+Erfahrung. Gibt es noch keine eigene Erfahrung (Kanal neu), stütze dich auf die
+'opportunities' aus den Beobachtungen.
 
 Plane EXAKT 2 Videos für heute.
 Video 1 → Upload um {UPLOAD_TIME_VIDEO_1} Uhr
 Video 2 → Upload um {UPLOAD_TIME_VIDEO_2} Uhr
 
-Für jedes Video:
-- animal: Welches Tier (aus bewährten Mustern + aktuellen Trends)
-- image_style: Kurze Beschreibung des gewünschten Bilds
+Analysiere für jedes Video ALLE Dimensionen:
+- animal: Welches Tier
+- angle: Erzähl-Winkel/Perspektive
+- setting: Ort/Umgebung/Licht
+- image_style: Kurze Bildbeschreibung (verbinde angle + setting sinnvoll)
 - hook_style: "shock" | "question" | "pov" | "fact"
 - hook_text_a: Hook-Text Variante A (für A/B Test)
 - hook_text_b: Hook-Text Variante B (für A/B Test)
+- hashtags: 3-5 relevante Hashtags (Array)
 - music_mood: Musik-Stimmung für ACE-Step (keine Vocals, max 20 Wörter)
 - upload_time: Uhrzeit
-- reasoning: Kurze Begründung mit Daten
+- reasoning: kurze, datenbasierte Begründung (nenne, ob eher eigene Erfahrung oder Trend ausschlaggebend war)
 
 Antworte NUR als JSON-Array mit genau 2 Elementen.
 """
@@ -93,20 +96,26 @@ Antworte NUR als JSON-Array mit genau 2 Elementen.
         return [
             {
                 "animal": animal1,
-                "image_style": f"close-up, natural lighting",
+                "angle": "close-up reaction",
+                "setting": "soft natural lighting indoors",
+                "image_style": "close-up, natural lighting",
                 "hook_style": best.get("best_hook_style", "shock"),
                 "hook_text_a": "You won't believe this 😱",
                 "hook_text_b": "Wait for it... 🤯",
+                "hashtags": ["#shorts", "#animals", "#cute"],
                 "music_mood": "upbeat happy 120bpm no vocals",
                 "upload_time": UPLOAD_TIME_VIDEO_1,
                 "reasoning": "Fallback: beste historische Muster"
             },
             {
                 "animal": animal2,
+                "angle": "playful discovery",
+                "setting": "cute natural environment, daylight",
                 "image_style": "cute natural environment",
                 "hook_style": "question",
                 "hook_text_a": "Can you guess what happens next? 🤔",
                 "hook_text_b": "Have you ever seen this? 😍",
+                "hashtags": ["#shorts", "#wildlife", "#aww"],
                 "music_mood": "peaceful nature ambient no vocals",
                 "upload_time": UPLOAD_TIME_VIDEO_2,
                 "reasoning": "Fallback: sicherer zweiter Slot"

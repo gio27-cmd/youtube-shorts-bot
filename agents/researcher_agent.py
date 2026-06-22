@@ -152,8 +152,9 @@ class ResearcherAgent:
         trends: dict
     ) -> dict:
         prompt = f"""
-Du bist ein YouTube Shorts Stratege.
-Analysiere diese Trending-Daten und identifiziere Viral-Potential.
+Du bist ein erfahrener YouTube-Shorts-Stratege für einen Tier-Kanal.
+Analysiere die Trending-Daten gründlich und leite KONKRETE, umsetzbare
+Content-Ideen ab — nicht nur WELCHES Tier, sondern WIE genau es umgesetzt wird.
 
 YOUTUBE TRENDING (letzte 6h):
 {youtube_data[:5]}
@@ -164,8 +165,8 @@ REDDIT HOT POSTS:
 GOOGLE TRENDS (Score 0-100):
 {trends}
 
-Gib mir die TOP 3 Tier-Content-Ideen mit höchstem viralen Potential
-für die nächsten 12 Stunden.
+Identifiziere die 3 stärksten Gelegenheiten für die nächsten 12h und
+analysiere je Gelegenheit MEHRERE Dimensionen (Winkel, Setting, Hook, Hashtags, Stimmung).
 
 Antworte NUR als JSON:
 {{
@@ -173,7 +174,20 @@ Antworte NUR als JSON:
   "trending_hooks": ["hook1", "hook2"],
   "emerging_trend": "Was gerade aufkommt",
   "avoid": "Was zu vermeiden ist",
-  "confidence": 0.85
+  "confidence": 0.85,
+  "analysis": "1-2 Sätze: strategischer Gesamteindruck der aktuellen Lage",
+  "opportunities": [
+    {{
+      "animal": "Tier",
+      "angle": "Erzähl-Winkel/Perspektive (z.B. POV, Vorher-Nachher, Überraschung)",
+      "setting": "Ort/Umgebung/Licht (z.B. verschneiter Wald, goldene Stunde)",
+      "hook_style": "shock|question|pov|fact",
+      "hashtags": ["#tag1", "#tag2", "#tag3"],
+      "mood": "Stimmung/Musik-Richtung (kurz)",
+      "why": "Warum das gerade Potential hat (datenbasiert)",
+      "confidence": 0.0
+    }}
+  ]
 }}
 """
         response = self.gemini.generate_content(prompt)
@@ -223,7 +237,9 @@ Antworte NUR als JSON:
                 "trending_hooks": ["You won't believe this 😱"],
                 "emerging_trend": "Unbekannt",
                 "avoid": "",
-                "confidence": 0.5
+                "confidence": 0.5,
+                "analysis": "Fallback-Aggregation (LLM nicht verfügbar)",
+                "opportunities": []
             }
 
         research_data = {
@@ -232,6 +248,8 @@ Antworte NUR als JSON:
             "emerging_trend":  analysis.get("emerging_trend", ""),
             "avoid":           analysis.get("avoid", ""),
             "confidence":      analysis.get("confidence", 0.5),
+            "analysis":        analysis.get("analysis", ""),
+            "opportunities":   analysis.get("opportunities", []),
             "youtube_count":   len(youtube_data),
             "reddit_count":    len(reddit_data),
             "trends_data":     trends
