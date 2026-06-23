@@ -40,6 +40,10 @@ const COOLDOWN = {
   optimize: 24 * 3600e3,
 };
 const MAX_PRODUCE_PER_DAY = 3;
+// Mindestabstand zwischen zwei ECHTEN Uploads (Stunden). Verhindert Bursts und
+// sorgt für echte Tagesverteilung — unabhängig vom Mitternachts-Reset. 6h erlaubt
+// 3 Videos/Tag (z.B. ~8h-Raster), blockiert aber das 30-Min-Hintereinander.
+const MIN_PRODUCE_SPACING_H = 6;
 
 // Quota-Sparmodus: Das LLM wird pro Tick nur befragt, wenn etwas ansteht
 // (fälliger Task / Signal). Steht nichts an, wird höchstens 1x pro diesem
@@ -122,6 +126,7 @@ async function logThought(env, state, entry) {
   state.last_reasoning = entry.reasoning;
   state.last_confidence = entry.confidence;
   state.dispatched = entry.dispatched || null;
+  state.last_blocked = entry.blocked || null;
   const log = (await readJson(env, BRAIN_LOG)) || [];
   log.unshift(entry);
   await env.KV.put(BRAIN_LOG, JSON.stringify(log.slice(0, 50)));
@@ -152,6 +157,10 @@ async function summarize(env, state) {
   // erfolgreichem Upload gesetzt). Gescheiterte produce-Läufe (z.B. HF-Quota)
   // zählen NICHT — sonst verbrennt ein Fehlschlag einen der 3 Tages-Slots.
   const uploadedToday = dated.filter((v) => (v.uploaded_at || "").slice(0, 10) === todayUTC()).length;
+  // Stunden seit dem letzten ECHTEN Upload (dated[0] = neuestes). Basis für den
+  // Mindestabstand — kalender-/dispatch-unabhängig, daher burst- UND
+  // mitternachtssicher (Tageszähler-Reset um 00:00 UTC kann keinen Schwung auslösen).
+  const lastUploadAgeH = dated.length ? ageHnum(dated[0].uploaded_at) : null;
   const abDue = abtests.filter((a) => a.status === "running" && a.started_at && (ageHnum(a.started_at) || 0) > 48).length;
   const r = research || {};
 
@@ -168,6 +177,7 @@ async function summarize(env, state) {
     research: { age: ageH(r.saved_at), top_animals: (r.top_animals || []).slice(0, 3), emerging: r.emerging_trend || null, confidence: r.confidence ?? null, best_post_times_utc: r.best_post_times_utc || null },
     strategy_planned: ((strat || {}).videos || []).length,
     produces_today: uploadedToday,
+    last_upload_age_h: lastUploadAgeH,
     last_dispatch_age: Object.fromEntries(ACTIONS.filter((a) => a !== "idle").map((a) => [a, ageH(state.last_dispatch[a])])),
   };
 }
@@ -181,7 +191,7 @@ ${JSON.stringify(ctx, null, 2)}
 
 Erlaubte Aktionen:
 - research: Trends sammeln/analysieren. Sinnvoll wenn research.age alt (>1h) — der Kanal soll Trends sehr früh erkennen.
-- produce: 1 Video planen, bauen, hochladen. produces_today = heute bereits ERFOLGREICH hochgeladene Videos; Ziel sind ${MAX_PRODUCE_PER_DAY}/Tag. Die Läufe sollen zu den vom Research empfohlenen Posting-Zeiten laufen: research.best_post_times_utc (UTC, "HH:MM"). Wähle produce, wenn produces_today < ${MAX_PRODUCE_PER_DAY} UND die aktuelle UTC-Zeit nahe (±15 Min) an einer Posting-Zeit liegt — sonst auf das nächste Fenster warten. (Ein gescheiterter Lauf erhöht produces_today nicht, wird also automatisch erneut versucht.)
+- produce: 1 Video planen, bauen, hochladen. produces_today = heute bereits ERFOLGREICH hochgeladene Videos; Ziel sind ${MAX_PRODUCE_PER_DAY}/Tag. Die Läufe sollen zu den vom Research empfohlenen Posting-Zeiten laufen: research.best_post_times_utc (UTC, "HH:MM"). Wähle produce NUR wenn ALLE gelten: (1) produces_today < ${MAX_PRODUCE_PER_DAY}; (2) aktuelle UTC-Zeit nahe (±15 Min) an einer Posting-Zeit; (3) last_upload_age_h ist null ODER ≥ ${MIN_PRODUCE_SPACING_H} (Mindestabstand zwischen Videos, gegen Bursts). Sonst idle/warten. (Ein gescheiterter Lauf erhöht produces_today nicht und verschiebt last_upload_age_h nicht, wird also später erneut versucht.)
 - analytics: Performance vorhandener Videos aktualisieren (~1x/Tag, wenn Videos existieren).
 - ab_evaluate: laufende A/B-Tests auswerten.
 - comments: Kommentare der letzten Videos beantworten (nur wenn Videos existieren).
@@ -268,14 +278,20 @@ async function openrouterJson(env, prompt) {
 
 // ---------------------------------------------------------------- guardrails
 
-function guard(action, state, runActive, uploadedToday) {
+function guard(action, state, runActive, uploadedToday, lastUploadAgeH) {
   if (action === "idle") return { ok: false, reason: "idle" };
   if (runActive) return { ok: false, reason: "Lauf bereits aktiv – warte" };
   if (action === "produce") {
     // Limit zählt ERFOLGREICHE Uploads heute, nicht Dispatches. So wird ein
     // gescheiterter Lauf (HF-Quota) am nächsten Posting-Fenster neu versucht,
-    // statt einen Slot zu verbrennen. Der 4h-Cooldown verhindert Hämmern.
+    // statt einen Slot zu verbrennen. Der Cooldown verhindert Doppelfeuer.
     if ((uploadedToday || 0) >= MAX_PRODUCE_PER_DAY) return { ok: false, reason: `Tageslimit ${MAX_PRODUCE_PER_DAY} Uploads erreicht` };
+    // Mindestabstand seit dem letzten ECHTEN Upload — verhindert Nacht-Bursts und
+    // den Mitternachts-Doppelbatch. Ein gescheiterter Lauf verschiebt die Uhr NICHT
+    // (lastUploadAgeH basiert auf uploaded_at), Retries bleiben also möglich.
+    if (lastUploadAgeH != null && lastUploadAgeH < MIN_PRODUCE_SPACING_H) {
+      return { ok: false, reason: `Mindestabstand ${MIN_PRODUCE_SPACING_H}h seit letztem Upload (erst ${lastUploadAgeH.toFixed(1)}h)` };
+    }
   }
   const last = state.last_dispatch[action];
   if (last && Date.now() - Date.parse(last) < (COOLDOWN[action] || 0)) {
@@ -353,13 +369,14 @@ async function cycle(env, ctx) {
   // Tageslimit zählt erfolgreiche Uploads. Ohne Kontext (KV nicht lesbar) blocken
   // wir produce vorsichtshalber (so als ob das Limit erreicht wäre).
   const uploadedToday = ctxData ? ctxData.produces_today : MAX_PRODUCE_PER_DAY;
-  let g = guard(decision.action, state, runActive, uploadedToday);
+  const lastUploadAgeH = ctxData ? ctxData.last_upload_age_h : 0;
+  let g = guard(decision.action, state, runActive, uploadedToday, lastUploadAgeH);
 
   // Sicherheitsnetz: wenn Gemini idle wählt, aber ein kritischer Task fällig ist.
   if (!g.ok && decision.action === "idle") {
     const net = safetyNet(state, ctxData);
     if (net) {
-      const ng = guard(net, state, runActive, uploadedToday);
+      const ng = guard(net, state, runActive, uploadedToday, lastUploadAgeH);
       if (ng.ok) { decision = { action: net, reasoning: "Sicherheitsnetz: planmäßiger " + net + " fällig.", confidence: 0.6 }; g = ng; source = source + "+net"; }
     }
   }

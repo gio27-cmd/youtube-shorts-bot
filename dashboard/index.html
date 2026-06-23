@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1014">
+<title>Animal Shorts · Operations</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Animal Shorts">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+<script>
+// Theme früh setzen, bevor gerendert wird (kein Flackern). Gespeicherte Wahl
+// gewinnt, sonst "auto" → folgt der System-Einstellung.
+(function(){var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark')t='auto';document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+:root{
+  --bg:#fff; --surface:#fafafa; --surface2:#f3f4f6;
+  --text:#16181d; --text2:#5b606b; --text3:#9aa0ab;
+  --border:rgba(0,0,0,.09); --border2:rgba(0,0,0,.16);
+  --blue:#2f6fed; --blue-bg:#eaf1fe;
+  --danger:#d23f3f; --danger-bg:#fbecec;
+  --radius:12px; --radius-sm:8px;
+}
+:root[data-theme="dark"]{
+  --bg:#0e1014; --surface:#16191f; --surface2:#1c2027;
+  --text:#e8eaed; --text2:#9aa0ab; --text3:#6b7280;
+  --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.18);
+  --blue:#5b8def; --blue-bg:#16243f;
+  --danger:#e06a6a; --danger-bg:#2a1718;
+}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"]{
+  --bg:#0e1014; --surface:#16191f; --surface2:#1c2027;
+  --text:#e8eaed; --text2:#9aa0ab; --text3:#6b7280;
+  --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.18);
+  --blue:#5b8def; --blue-bg:#16243f;
+  --danger:#e06a6a; --danger-bg:#2a1718;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) 60px calc(18px + env(safe-area-inset-left))}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.cap{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0}
+.panel{border:.5px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.muted{color:var(--text2)} .dim{color:var(--text3)} .blue{color:var(--blue)} .red{color:var(--danger)}
+.sec{display:flex;align-items:center;gap:13px;margin:22px 0 13px}
+.idx{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue)}
+.stitle{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--text2)}
+.rule{flex:1;height:.5px;background:var(--border)}
+.r{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--border)}
+.r:last-child{border-bottom:0;padding-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.logo{width:30px;height:30px;border-radius:var(--radius-sm);background:var(--blue-bg);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px}
+.tabs{display:flex;gap:22px;border-bottom:.5px solid var(--border);margin-bottom:6px}
+.tab{display:flex;align-items:center;gap:7px;padding:10px 2px;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.tab.act{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+.tab i{font-size:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);margin:4px 0}
+.kpi{padding:0 16px;border-left:.5px solid var(--border)}
+.kpi:first-child{padding-left:0;border-left:0}
+.bignum{font-size:46px;font-weight:600;line-height:.95;letter-spacing:-.03em;margin:7px 0 4px}
+.tag{font-size:10px;padding:2px 8px;border-radius:999px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.tag.b{background:var(--blue-bg);color:var(--blue)} .tag.n{background:var(--surface2);color:var(--text2)} .tag.d{background:var(--danger-bg);color:var(--danger)}
+.dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--border2);margin-right:3px;vertical-align:1px}
+.dot.on{background:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-weight:400;color:var(--text3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:0 8px 9px 0;border-bottom:.5px solid var(--border2)}
+td{padding:9px 8px 9px 0;border-bottom:.5px solid var(--border)}
+tr:last-child td{border-bottom:0}
+.pill{font-size:11px;padding:5px 12px;border-radius:999px;border:.5px solid var(--border);color:var(--text2);cursor:pointer;user-select:none}
+.pill.act{background:var(--blue-bg);color:var(--blue);border-color:transparent}
+.vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.vthumb{position:relative;aspect-ratio:9/16;background:var(--surface2);border:.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.vthumb img{width:100%;height:100%;object-fit:cover}
+.vthumb .ph{font-size:34px;color:var(--text3)}
+.vchip{position:absolute;top:7px;font-size:10px;padding:2px 7px;border-radius:999px;font-family:'JetBrains Mono',monospace}
+a.lnk{color:var(--blue);text-decoration:none}
+.erow{display:flex;align-items:center;gap:11px;padding:11px 4px;cursor:pointer;border-bottom:.5px solid var(--border)}
+.erow:hover{background:var(--surface)}
+.chev{font-size:15px;color:var(--text3);transition:transform .15s}
+.erow.open .chev{transform:rotate(90deg);color:var(--blue)}
+.detail{padding:4px 4px 16px 35px;border-bottom:.5px solid var(--border)}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px 16px;margin:8px 0 12px}
+.mgrid .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.mgrid .v{font-size:12.5px;margin-top:2px}
+pre{margin:0;font-size:11px;line-height:1.75;color:var(--text2);white-space:pre-wrap;word-break:break-word}
+.spark{width:240px;height:64px;flex-shrink:0}
+.bar{height:4px;background:var(--surface2);border-radius:999px;overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--blue);border-radius:999px}
+.skel{color:var(--text3);font-size:13px;padding:40px 0;text-align:center}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--blue)}
+.live .pulse{width:7px;height:7px;border-radius:50%;background:var(--blue);animation:p 1.6s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+.hide{display:none!important}
+/* Apple-Style Theme-Schalter */
+.theme-tog{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.theme-tog i{font-size:14px;color:var(--text3);transition:color .2s}
+.theme-tog i.act{color:var(--blue)}
+.switch{position:relative;width:44px;height:26px;border-radius:999px;background:var(--surface2);border:.5px solid var(--border2);transition:background .25s ease,border-color .25s ease;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:1.5px;left:1.5px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.06),0 2px 5px rgba(0,0,0,.28);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.switch.on{background:#34c759;border-color:transparent}
+.switch.on::after{transform:translateX(18px)}
+@media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr);gap:14px 0}.kpi{padding:0 14px}.kpi:nth-child(odd){padding-left:0;border-left:0}.vgrid{grid-template-columns:repeat(2,1fr)}.mgrid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.spark{display:none}.bignum{font-size:38px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:center;gap:11px">
+      <div class="logo"><i class="ti ti-paw"></i></div>
+      <div>
+        <p style="margin:0;font-size:14px;font-weight:600">Animal Shorts</p>
+        <p style="margin:0;font-size:11px" class="dim">Operations Console</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="theme-tog" id="themeTog" onclick="toggleTheme()" role="switch" tabindex="0" aria-label="Hell- / Dunkelmodus umschalten" title="Hell / Dunkel">
+        <i class="ti ti-sun"></i>
+        <span class="switch" id="themeSwitch"></span>
+        <i class="ti ti-moon"></i>
+      </div>
+      <div style="text-align:right;font-size:11px" class="dim mono">
+        <div id="syncline">lädt…</div>
+        <div id="liveline"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab act" data-tab="ops" onclick="setTab('ops')"><i class="ti ti-activity"></i>Betrieb</div>
+    <div class="tab" data-tab="brain" onclick="setTab('brain')"><i class="ti ti-cpu"></i>Gehirn</div>
+    <div class="tab" data-tab="vid" onclick="setTab('vid')"><i class="ti ti-movie"></i>Videos <span id="vcount" class="mono dim" style="font-size:10px"></span></div>
+    <div class="tab" data-tab="mem" onclick="setTab('mem')"><i class="ti ti-brain"></i>Gedächtnis</div>
+  </div>
+
+  <div id="p-ops"><div class="skel">lädt Betriebsdaten…</div></div>
+  <div id="p-brain" class="hide"></div>
+  <div id="p-vid" class="hide"></div>
+  <div id="p-mem" class="hide"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let STATE = null, FILTER = "all";
+
+function setTab(k){
+  ["ops","brain","vid","mem"].forEach(x=>{
+    $("p-"+x).classList.toggle("hide", x!==k);
+    document.querySelector('.tab[data-tab="'+x+'"]').classList.toggle("act", x===k);
+  });
+}
+
+// ---- helpers
+const nz = (x)=> (typeof x==="number"&&isFinite(x))?x:0;
+function fmt(n){ n=Math.round(nz(n)); return n.toLocaleString("de-DE"); }
+function fmtShort(n){ n=nz(n); if(n>=1e6)return (n/1e6).toFixed(2).replace(".",",")+"M"; if(n>=1e3)return (n/1e3).toFixed(1).replace(".",",")+"k"; return Math.round(n).toString(); }
+function ago(iso){ if(!iso)return "—"; const s=(Date.now()-Date.parse(iso))/1000; if(s<60)return "gerade"; if(s<3600)return "vor "+Math.floor(s/60)+" min"; if(s<86400)return "vor "+Math.floor(s/3600)+" Std"; return "vor "+Math.floor(s/86400)+" T"; }
+function age(iso){ if(!iso)return "—"; const d=Math.floor((Date.now()-Date.parse(iso))/86400000); return d<=0?"heute":d+"T"; }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function latest(v){ return v.analytics_72h||v.analytics_48h||v.analytics_24h||{}; }
+function perfOf(v){ const p=v.performance; if(p)return p; const views=nz(v.views); return views>=50000?"viral":views>=10000?"good":"bad"; }
+function perfLabel(p){ return p==="viral"?"viral":p==="good"?"gut":"flop"; }
+function perfDots(p){ const n=p==="viral"?3:p==="good"?2:1; let s=""; for(let i=0;i<3;i++)s+='<span class="dot'+(i<n?" on":"")+'"></span>'; return s; }
+function ytId(v){ return v.video_id || v.vid_id_a || v.vid_id_b; }
+
+// next scheduled run (UTC crons from .github/workflows/bot.yml)
+function nextRun(){
+  const crons=[
+    {h:[0,6,12,18],m:0,task:"research"},
+    {h:[2],m:30,task:"produce"},
+    {h:[10],m:0,task:"analytics"},
+    {h:[12],m:0,task:"ab_evaluate"},
+    {h:[9,15,21],m:0,task:"comments"},
+    {h:[23],m:0,task:"optimize",dow:0},
+  ];
+  const now=new Date(); let best=null;
+  for(let add=0;add<8*24;add++){
+    const d=new Date(now.getTime()+add*3600000);
+    const H=d.getUTCHours();
+    for(const c of crons){
+      if(c.dow!=null && d.getUTCDay()!==c.dow) continue;
+      if(!c.h.includes(H)) continue;
+      const t=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),H,c.m));
+      if(t.getTime()>now.getTime() && (!best||t<best.t)) best={t,task:c.task};
+    }
+    if(best) break;
+  }
+  if(!best) return "—";
+  const hh=String(best.t.getUTCHours()).padStart(2,"0"), mm=String(best.t.getUTCMinutes()).padStart(2,"0");
+  return best.task+" · "+hh+":"+mm+" UTC";
+}
+
+function sparkPath(vals,w,h){
+  if(!vals.length) return "";
+  const max=Math.max(...vals,1), min=Math.min(...vals,0);
+  const rng=(max-min)||1;
+  return vals.map((v,i)=>{
+    const x=vals.length>1?(i/(vals.length-1))*w:0;
+    const y=h-((v-min)/rng)*(h-6)-3;
+    return (i?"L":"M")+x.toFixed(1)+","+y.toFixed(1);
+  }).join(" ");
+}
+
+// ---- metrics
+function metrics(s){
+  const vids=s.videos||[];
+  const now=Date.now();
+  const rec=vids.filter(v=>v.uploaded_at && now-Date.parse(v.uploaded_at)<28*864e5);
+  let views=0, subs=0, watch=0, retSum=0, retN=0;
+  rec.forEach(v=>{ const l=latest(v); views+=nz(v.views); subs+=nz(l.new_subscribers); watch+=nz(l.watch_minutes); const r=nz(v.avg_view_percentage||l.avg_view_percentage); if(r>0){retSum+=r;retN++;} });
+  const counts={viral:0,good:0,bad:0};
+  vids.forEach(v=>{counts[perfOf(v)]++;});
+  const total=vids.length||1;
+  // cumulative spark from recent videos by date
+  const byDate=rec.slice().sort((a,b)=>(a.uploaded_at||"").localeCompare(b.uploaded_at||""));
+  let cum=0; const series=byDate.map(v=>{cum+=nz(v.views);return cum;});
+  return {
+    views28:views, subs, watchH:watch/60,
+    retention:retN?retSum/retN:0,
+    viral:counts.viral, good:counts.good, bad:counts.bad, total:vids.length,
+    viralRate:vids.length?counts.viral/vids.length*100:0,
+    series
+  };
+}
+
+// ---- render OPS
+function renderOps(s){
+  const m=metrics(s);
+  const run=s.now&&s.now.running;
+  const spark=sparkPath(m.series.length?m.series:[0,0],240,60);
+  const runs=s.runs||[];
+  const histBars=runs.slice(0,16).reverse().map(r=>{
+    const col=r.status!=="completed"?"var(--blue)":(r.conclusion==="success"?"var(--border2)":"var(--danger)");
+    const hgt=r.conclusion==="success"?80:(r.status!=="completed"?70:50);
+    return '<span style="flex:1;height:'+hgt+'%;background:'+col+';border-radius:1px" title="'+esc(r.title||r.event)+'"></span>';
+  }).join("") || '<span class="dim" style="font-size:11px">keine Läufe (GitHub-Token nicht gesetzt)</span>';
+
+  // agents last-active
+  const vids=s.videos||[];
+  const lastUpload=vids.map(v=>v.uploaded_at).filter(Boolean).sort().slice(-1)[0];
+  const lastAna=vids.map(v=>v.analytics_updated_at).filter(Boolean).sort().slice(-1)[0];
+  const abOpen=(s.abtests||[]).filter(a=>a.status==="running").length;
+  const lastAb=(s.abtests||[]).map(a=>a.evaluated_at).filter(Boolean).sort().slice(-1)[0];
+
+  $("p-ops").innerHTML = `
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;margin:18px 0">
+    <div>
+      <p class="cap">Views · letzte 28 Tage</p>
+      <p class="bignum mono">${fmtShort(m.views28)}</p>
+      <p style="margin:0;font-size:12px" class="mono dim">${m.total} Videos · ${fmt(m.subs)} Abos gewonnen</p>
+    </div>
+    <svg class="spark" viewBox="0 0 240 64" preserveAspectRatio="none">
+      <path d="${spark}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><p class="cap">Abos +28T</p><p style="margin:6px 0 2px;font-size:20px;font-weight:500" class="mono">${fmt(m.subs)}</p></div>
+    <div class="kpi"><p class="cap">Watch-Time</p><p style="margin:6px 0 2px;font-size:20px;font-weight:500" class="mono">${fmt(m.watchH)}h</p></div>
+    <div class="kpi"><p class="cap">Viral-Rate</p><p style="margin:6px 0 2px;font-size:20px;font-weight:500" class="mono">${m.viralRate.toFixed(1).replace(".",",")}%</p></div>
+    <div class="kpi"><p class="cap">Ø Retention</p><p style="margin:6px 0 2px;font-size:20px;font-weight:500" class="mono">${Math.round(m.retention)}%</p></div>
+  </div>
+
+  <div class="sec"><span class="idx">01</span><span class="stitle">Betrieb</span><span class="rule"></span></div>
+  <div class="panel" style="border-left:2px solid var(--blue);margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <div style="display:flex;align-items:center;gap:9px">
+        ${run?'<span class="live"><span class="pulse"></span></span>':'<span class="dot"></span>'}
+        <span style="font-size:13px">${run?esc(run.event)+" läuft":"kein Lauf aktiv"}</span>
+        ${run?'<span class="mono dim" style="font-size:11px">'+ago(run.started_at)+'</span>':''}
+      </div>
+      <span class="mono dim" style="font-size:11px">nächster ${nextRun()}</span>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:28px">${histBars}</div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <p class="cap" style="margin-bottom:10px">Agenten</p>
+      <div class="r"><span style="flex:1;font-size:13px">Produktion</span>${run?'<span class="blue" style="font-size:11px">läuft</span>':''}<span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastUpload)}</span></div>
+      <div class="r"><span style="flex:1;font-size:13px">Researcher</span><span class="dim" style="font-size:11px">${nz((s.research||{}).reddit_count)+nz((s.research||{}).youtube_count)} Quellen</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago((s.research||{}).saved_at)}</span></div>
+      <div class="r"><span style="flex:1;font-size:13px">Analytics</span><span class="dim" style="font-size:11px">${(s.videos||[]).length} Videos</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastAna)}</span></div>
+      <div class="r"><span style="flex:1;font-size:13px">A/B Tester</span><span class="dim" style="font-size:11px">${abOpen} offen</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastAb)}</span></div>
+      <div class="r"><span style="flex:1;font-size:13px">Optimizer</span><span class="dim" style="font-size:11px">wöchentl.</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago((s.weekly||{}).created_at)}</span></div>
+    </div>
+    <div class="panel" id="events"></div>
+  </div>`;
+
+  renderEvents(s);
+}
+
+// ---- events
+function evMeta(label,val){ return '<div><div class="k">'+label+'</div><div class="v">'+val+'</div></div>'; }
+function eventLine(e,i){
+  let tag,txt,right;
+  if(e.kind==="upload"){ const p=perfOf(e.v); tag='<span class="tag '+(p==="bad"?"n":"b")+'">upload</span>'; txt=esc(e.v.animal||"Video"); right='<span class="mono dim" style="font-size:11px">'+fmtShort(e.v.views)+'</span>'; }
+  else if(e.kind==="ab"){ tag='<span class="tag n">ab_eval</span>'; txt="Test "+esc((e.a.test_id||"").slice(0,6)); right='<span class="mono blue" style="font-size:11px">'+esc((e.a.winner||"?").toUpperCase())+" +"+nz(e.a.uplift_pct)+'%</span>'; }
+  else if(e.kind==="research"){ tag='<span class="tag n">research</span>'; txt="Trends gespeichert"; right='<span class="mono dim" style="font-size:11px">'+(((e.r.top_animals)||[]).length)+' Tiere</span>'; }
+  else { const r=e.run; const fail=r.conclusion&&r.conclusion!=="success"; tag='<span class="tag '+(fail?"d":(r.status!=="completed"?"b":"n"))+'">'+esc(r.event||"run")+'</span>'; txt=esc(r.title||"Workflow-Lauf"); right='<span class="mono '+(fail?"red":"dim")+'" style="font-size:11px">'+esc(fail?r.conclusion:(r.status!=="completed"?"läuft":r.conclusion||"ok"))+'</span>'; }
+  const time=new Date(e.t); const hh=String(time.getHours()).padStart(2,"0")+":"+String(time.getMinutes()).padStart(2,"0");
+  return '<div class="erow" onclick="toggleEv('+i+')"><i class="ti ti-chevron-right chev"></i>'
+    +'<span class="mono dim" style="font-size:11px;width:38px">'+hh+'</span>'+tag
+    +'<span style="flex:1;font-size:13px">'+txt+'</span>'+right+'</div>'
+    +'<div class="detail hide" id="evd'+i+'">'+eventDetail(e)+'</div>';
+}
+function eventDetail(e){
+  if(e.kind==="upload"){ const v=e.v,l=latest(v),id=ytId(v); return '<div class="mgrid">'
+    +evMeta("Tier",esc(v.animal||"—"))+evMeta("Variante",esc((v.variant||"-").toUpperCase()))+evMeta("Hook-Stil",esc(v.hook_style||"—"))
+    +evMeta("Views",fmt(v.views))+evMeta("Retention",Math.round(nz(v.avg_view_percentage||l.avg_view_percentage))+"%")+evMeta("Hochgeladen",ago(v.uploaded_at))
+    +evMeta("Likes",fmt(l.likes))+evMeta("Kommentare",fmt(l.comments))+evMeta("Shares",fmt(l.shares))+'</div>'
+    +(v.hook_text?'<p class="cap" style="margin-bottom:4px">Hook</p><p style="margin:0 0 12px;font-size:12.5px" class="muted">"'+esc(v.hook_text)+'"</p>':'')
+    +(id?'<a class="lnk" style="font-size:11.5px" target="_blank" href="https://youtube.com/shorts/'+esc(id)+'">Video ansehen ↗</a>':''); }
+  if(e.kind==="ab"){ const a=e.a; return '<div class="mgrid">'
+    +evMeta("Test-ID",'<span class="mono">'+esc(a.test_id)+'</span>')+evMeta("Gewinner",'<span class="blue mono">Variante '+esc((a.winner||"?").toUpperCase())+'</span>')+evMeta("Lift",'<span class="blue mono">+'+nz(a.uplift_pct)+'%</span>')
+    +evMeta("Views A",fmt(a.views_a))+evMeta("Views B",fmt(a.views_b))+evMeta("Hook-Stil",esc(a.hook_style||"—"))+'</div>'
+    +'<p class="cap" style="margin-bottom:3px">Hook A</p><p style="margin:0 0 8px;font-size:12.5px" class="muted">"'+esc(a.hook_text_a)+'"</p>'
+    +'<p class="cap" style="margin-bottom:3px">Hook B</p><p style="margin:0;font-size:12.5px" class="muted">"'+esc(a.hook_text_b)+'"</p>'; }
+  if(e.kind==="research"){ const r=e.r; return '<div class="mgrid">'
+    +evMeta("YouTube",nz(r.youtube_count)+" Videos")+evMeta("Reddit",nz(r.reddit_count)+" Posts")+evMeta("Confidence",Math.round(nz(r.confidence)*100)+"%")+'</div>'
+    +'<p class="cap" style="margin-bottom:4px">Top-Tiere</p><p style="margin:0 0 10px;font-size:12.5px" class="muted">'+esc(((r.top_animals)||[]).join(", ")||"—")+'</p>'
+    +(r.emerging_trend?'<p class="cap" style="margin-bottom:4px">Aufkommend</p><p style="margin:0;font-size:12.5px" class="muted">'+esc(r.emerging_trend)+'</p>':''); }
+  const r=e.run; return '<div class="mgrid">'
+    +evMeta("Auslöser",'<span class="mono">'+esc(r.event)+'</span>')+evMeta("Status",'<span class="mono">'+esc(r.status)+'</span>')+evMeta("Ergebnis",'<span class="mono '+(r.conclusion&&r.conclusion!=="success"?"red":"")+'">'+esc(r.conclusion||"—")+'</span>')
+    +evMeta("Gestartet",ago(r.run_started_at||r.created_at))+evMeta("Run-ID",'<span class="mono">#'+esc(String(r.id).slice(-4))+'</span>')+'</div>'
+    +'<a class="lnk" style="font-size:11.5px" target="_blank" href="'+esc(r.html_url)+'">GitHub-Logs ↗</a>';
+}
+function toggleEv(i){ const d=$("evd"+i); if(!d)return; d.classList.toggle("hide"); d.previousElementSibling.classList.toggle("open"); }
+function renderEvents(s){
+  const ev=s.events||[];
+  $("events").innerHTML='<p class="cap" style="margin-bottom:6px">Ereignisse · letzte Aktivität</p>'
+    +(ev.length?ev.map((e,i)=>eventLine(e,i)).join(""):'<p class="dim" style="font-size:12px;margin:8px 0 0">noch keine Ereignisse</p>');
+}
+
+// ---- render VIDEOS
+function vIcon(animal){ const a=(animal||"").toLowerCase(); if(a.includes("dog")||a.includes("retriever")||a.includes("husky"))return"ti-dog"; if(a.includes("cat")||a.includes("kitten"))return"ti-cat"; if(a.includes("panda")||a.includes("bear"))return"ti-bear"; if(a.includes("otter")||a.includes("dolphin")||a.includes("fish"))return"ti-fish"; return"ti-paw"; }
+function renderVideos(s){
+  const vids=(s.videos||[]).slice().sort((a,b)=>(b.uploaded_at||"").localeCompare(a.uploaded_at||""));
+  const c={all:vids.length,viral:0,good:0,bad:0}; vids.forEach(v=>c[perfOf(v)]++);
+  $("vcount").textContent=vids.length;
+  const pills=[["all","Alle"],["viral","Viral"],["good","Gut"],["bad","Flop"]].map(([k,l])=>
+    '<span class="pill'+(FILTER===k?" act":"")+'" onclick="setFilter(\''+k+'\')">'+l+' · '+c[k]+'</span>').join("");
+  const cards=vids.filter(v=>FILTER==="all"||perfOf(v)===FILTER).map(v=>{
+    const p=perfOf(v), id=ytId(v), l=latest(v);
+    const thumb=id?'<img loading="lazy" src="https://i.ytimg.com/vi/'+esc(id)+'/oardefault.jpg" onerror="this.onerror=null;this.outerHTML=\'<i class=\\\'ti '+vIcon(v.animal)+' ph\\\'></i>\'">':'<i class="ti '+vIcon(v.animal)+' ph"></i>';
+    const chip=p==="viral"?'<span class="vchip" style="left:7px;background:var(--blue);color:#fff">viral</span>':p==="good"?'<span class="vchip" style="left:7px;background:var(--blue-bg);color:var(--blue)">gut</span>':'<span class="vchip n" style="left:7px;background:var(--surface2);color:var(--text3)">flop</span>';
+    return '<div class="vcard"><div class="vthumb">'+thumb+chip
+      +'<span class="vchip" style="right:7px;background:var(--bg);color:var(--text2);border:.5px solid var(--border)">'+esc((v.variant||"-").toUpperCase())+'</span></div>'
+      +'<p style="margin:7px 0 1px;font-size:12.5px;font-weight:500">'+esc(v.animal||"Video")+'</p>'
+      +'<p style="margin:0;font-size:11px" class="dim mono">'+fmt(v.views)+' · '+Math.round(nz(v.avg_view_percentage||l.avg_view_percentage))+'% · '+age(v.uploaded_at)+'</p>'
+      +(id?'<a class="lnk" style="font-size:11px" target="_blank" href="https://youtube.com/shorts/'+esc(id)+'">ansehen ↗</a>':'')+'</div>';
+  }).join("");
+  $("p-vid").innerHTML='<div style="display:flex;gap:8px;margin:18px 0 16px;flex-wrap:wrap">'+pills+'</div>'
+    +'<div class="vgrid">'+(cards||'<p class="dim" style="font-size:13px">keine Videos in diesem Filter</p>')+'</div>';
+}
+function setFilter(f){ FILTER=f; renderVideos(STATE); }
+
+// ---- render MEMORY
+function kvRow(icon,key,count,active){ return '<div class="r" style="padding:9px 6px'+(active?";background:var(--blue-bg);border-radius:8px;border-bottom:0":"")+'" onclick="showKv(\''+key+'\')" data-kv="'+key+'"><i class="ti '+icon+'" style="font-size:14px;color:'+(active?"var(--blue)":"var(--text3)")+'"></i><span class="mono" style="flex:1;font-size:12px;color:'+(active?"var(--blue)":"var(--text2)")+'">'+key+'</span>'+(count!=null?'<span class="mono dim" style="font-size:10px">'+count+'</span>':'')+'</div>'; }
+function renderMemory(s){
+  const b=s.patterns.best||{}, w=s.patterns.worst||{};
+  const strat=(s.strategy.videos)||[];
+  $("p-mem").innerHTML=`
+  <div class="sec" style="margin-top:18px"><span class="idx">A</span><span class="stitle">Was der Bot gelernt hat</span><span class="rule"></span></div>
+  <div class="panel" style="background:var(--blue-bg);border-color:transparent;margin-bottom:12px">
+    <div class="mgrid" style="margin:0">
+      <div><p class="cap" style="color:var(--blue);opacity:.7">Bestes Tier</p><p style="margin:5px 0 0;font-size:15px;font-weight:500" class="blue">${esc(b.best_animal||"—")}</p></div>
+      <div><p class="cap" style="color:var(--blue);opacity:.7">Bester Hook</p><p style="margin:5px 0 0;font-size:15px;font-weight:500" class="blue">${esc(b.best_hook_style||"—")}</p></div>
+      <div><p class="cap" style="color:var(--blue);opacity:.7">Beste Zeit</p><p style="margin:5px 0 0;font-size:15px;font-weight:500" class="blue mono">${esc(b.best_upload_time||"—")} · ${esc((b.best_upload_day||"").slice(0,2))}</p></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div class="panel">
+      <p class="cap" style="margin-bottom:11px">Meiden <span class="dim">· patterns:worst</span></p>
+      <div class="r" style="padding:7px 0"><span style="flex:1;font-size:12.5px" class="muted">Schwächstes Tier</span><span style="font-size:12.5px">${esc(w.worst_animal||"—")}</span></div>
+      <div class="r" style="padding:7px 0"><span style="flex:1;font-size:12.5px" class="muted">Schwächster Hook</span><span style="font-size:12.5px">${esc(w.worst_hook_style||"—")}</span></div>
+      <div class="r" style="padding:7px 0"><span style="flex:1;font-size:12.5px" class="muted">Flop-Quote</span><span class="mono" style="font-size:12.5px">${nz(w.bad_count)} / ${nz(b.total_videos)}</span></div>
+    </div>
+    <div class="panel">
+      <p class="cap" style="margin-bottom:11px">Aktuelle Strategie <span class="dim">· strategy:current</span></p>
+      ${strat.length?strat.map(v=>'<div class="r" style="padding:7px 0"><span class="mono blue" style="font-size:10px;width:46px">'+esc(v.upload_time||"—")+'</span><span style="flex:1;font-size:12.5px">'+esc(v.animal||"—")+'</span><span class="dim" style="font-size:11px">'+esc(v.hook_style||"")+'</span></div>').join(""):'<p class="dim" style="font-size:12px;margin:6px 0 0">kein Plan gespeichert</p>'}
+    </div>
+  </div>
+  <div class="sec"><span class="idx">B</span><span class="stitle">Gedächtnis-Speicher · Cloudflare KV</span><span class="rule"></span></div>
+  <div class="grid2">
+    <div class="panel" style="padding:6px 10px" id="kvlist">
+      ${kvRow("ti-key","patterns:best",null,true)}
+      ${kvRow("ti-key","patterns:worst",null,false)}
+      ${kvRow("ti-key","strategy:current",null,false)}
+      ${kvRow("ti-key","research:latest",null,false)}
+      ${kvRow("ti-key","weekly:report",null,false)}
+      ${kvRow("ti-folder","video:",(s.videos||[]).length,false)}
+      ${kvRow("ti-folder","abtest:",(s.abtests||[]).length,false)}
+    </div>
+    <div class="panel" style="background:var(--surface)" id="kvview"></div>
+  </div>`;
+  showKv("patterns:best");
+}
+function kvData(key){
+  const s=STATE;
+  if(key==="patterns:best")return s.patterns.best;
+  if(key==="patterns:worst")return s.patterns.worst;
+  if(key==="strategy:current")return s.strategy;
+  if(key==="research:latest")return s.research;
+  if(key==="weekly:report")return s.weekly;
+  if(key==="video:")return {prefix:"video:",count:(s.videos||[]).length,beispiel:(s.videos||[])[0]||{}};
+  if(key==="abtest:")return {prefix:"abtest:",count:(s.abtests||[]).length,beispiel:(s.abtests||[])[0]||{}};
+  return {};
+}
+function showKv(key){
+  const obj=kvData(key)||{};
+  const txt=JSON.stringify(obj,null,2);
+  const size=new Blob([txt]).size;
+  document.querySelectorAll('#kvlist [data-kv]').forEach(el=>{
+    const on=el.getAttribute("data-kv")===key;
+    el.style.background=on?"var(--blue-bg)":""; el.style.borderRadius=on?"8px":""; el.style.borderBottom=on?"0":"";
+    el.querySelector("span.mono").style.color=on?"var(--blue)":"var(--text2)";
+    el.querySelector("i").style.color=on?"var(--blue)":"var(--text3)";
+  });
+  $("kvview").innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><span class="mono blue" style="font-size:11px">'+esc(key)+'</span><span class="mono dim" style="font-size:10px">JSON · '+size+' B</span></div>'
+    +'<pre class="mono">'+esc(txt)+'</pre>';
+}
+
+// ---- render BRAIN
+function actLabel(a){ return ({research:"Research",produce:"Produktion",analytics:"Analytics",ab_evaluate:"A/B-Test",comments:"Kommentare",optimize:"Optimizer",idle:"Leerlauf"})[a]||a||"—"; }
+function renderBrain(s){
+  const b=s.brain||{state:{},log:[]}; const st=b.state||{}; const log=b.log||[];
+  const conf=(st.last_confidence!=null)?Math.round(st.last_confidence*100)+"%":"—";
+  const rows = log.length ? log.map(e=>{
+    const time=e.t?(d=>String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"))(new Date(e.t)):"—";
+    let status;
+    if(e.dispatched) status='<span class="tag" style="background:var(--blue-bg);color:var(--blue)">→ '+actLabel(e.dispatched)+' ausgelöst</span>';
+    else if(e.blocked && e.blocked!=="idle") status='<span class="tag" style="background:var(--surface2);color:var(--text2)">'+actLabel(e.action)+' · '+esc(e.blocked)+'</span>';
+    else status='<span class="tag" style="background:var(--surface2);color:var(--text3)">'+actLabel(e.action)+'</span>';
+    return '<div class="r" style="align-items:flex-start">'
+      +'<span class="mono dim" style="font-size:11px;width:40px;flex-shrink:0;padding-top:2px">'+time+'</span>'
+      +'<div style="flex:1"><div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+status
+      +(e.source?'<span class="mono dim" style="font-size:10px">'+esc(e.source)+'</span>':'')+'</div>'
+      +'<p style="margin:0;font-size:12.5px" class="muted">'+esc(e.reasoning||"")+'</p></div></div>';
+  }).join("") : '<p class="dim" style="font-size:13px;margin:8px 0 0">Noch kein Gedanke geloggt — das Gehirn denkt alle 4 Minuten, der erste Eintrag erscheint beim nächsten Takt.</p>';
+
+  const insightHtml = st.insight
+    ? '<div class="panel" style="background:var(--blue-bg);border-color:transparent;margin-bottom:12px">'
+      +'<p class="cap" style="color:var(--blue);opacity:.85;margin-bottom:6px"><i class="ti ti-bulb" style="font-size:12px;vertical-align:-1px"></i> Analyse & Empfehlung</p>'
+      +'<p style="margin:0;font-size:13.5px;line-height:1.6" class="blue">'+esc(st.insight)+'</p></div>'
+    : '';
+  const ob = st.observed || {};
+  const sig = [];
+  if(ob.trend){ const tr=String(ob.trend); sig.push("Trend: "+esc(tr.length>60?tr.slice(0,60)+"…":tr)); }
+  if(ob.fresh_videos_48h) sig.push(ob.fresh_videos_48h+" frische Videos");
+  if(ob.ab_due) sig.push(ob.ab_due+" A/B fällig");
+  if(ob.videos_total!=null) sig.push(ob.videos_total+" Videos gesamt");
+  if(ob.produces_today!=null) sig.push("heute "+ob.produces_today+"/3 produziert");
+  if(Array.isArray(ob.post_times)&&ob.post_times.length) sig.push("Posting-Zeiten: "+ob.post_times.map(esc).join(", ")+" UTC");
+  const sigHtml = sig.length
+    ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px">'+sig.map(s=>'<span class="tag" style="background:var(--surface2);color:var(--text2)">'+s+'</span>').join("")+'</div>'
+    : '';
+
+  // Eine Aktion gilt nur als ausgeführt, wenn sie wirklich dispatched wurde.
+  // Wurde sie vom Guard geblockt (z.B. Tageslimit/Abstand), darf der Kopf nicht
+  // so tun, als liefe sie — sonst widerspricht er den Chips/dem Gedankenstrom.
+  const wasBlocked = st.last_blocked && st.last_action!=='idle' && !st.dispatched;
+  const headTag = st.dispatched
+    ? '<span class="tag" style="background:var(--blue-bg);color:var(--blue);margin-left:9px;font-size:11px;vertical-align:4px">ausgelöst</span>'
+    : (wasBlocked ? '<span class="tag" style="background:var(--surface2);color:var(--text3);margin-left:9px;font-size:11px;vertical-align:4px">blockiert</span>' : '');
+  const blockedNote = wasBlocked
+    ? '<p style="margin:7px 0 0;font-size:12px" class="dim"><i class="ti ti-hand-stop" style="font-size:12px;vertical-align:-1px"></i> nicht ausgeführt — '+esc(st.last_blocked)+'</p>'
+    : '';
+  $("p-brain").innerHTML=
+   '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;margin:18px 0 6px">'
+    +'<div style="min-width:0"><p class="cap">Aktueller Gedanke · '+ago(st.updated_at)+'</p>'
+    +'<p style="margin:7px 0 6px;font-size:22px;font-weight:600;letter-spacing:-.01em'+(wasBlocked?';color:var(--text2)':'')+'">'+actLabel(st.last_action)+headTag+'</p>'
+    +'<p style="margin:0;font-size:13px;max-width:520px" class="muted">'+esc(st.last_reasoning||"Das Gehirn ist aktiviert. Beim nächsten Takt erscheint die erste Entscheidung.")+'</p>'
+    +blockedNote+'</div>'
+    +'<div style="text-align:right;flex-shrink:0"><p class="cap">Konfidenz</p><p class="mono" style="font-size:20px;font-weight:500;margin:6px 0 0">'+conf+'</p></div></div>'
+   +'<p class="mono dim" style="font-size:11px;margin:0 0 12px"><i class="ti ti-cpu" style="font-size:12px;vertical-align:-1px"></i> denkt alle 4 Min · Gemini · Aktion nur bei Bedarf</p>'
+   +sigHtml
+   +insightHtml
+   +'<div class="sec"><span class="idx">~</span><span class="stitle">Gedankenstrom</span><span class="rule"></span></div>'
+   +'<div class="panel">'+rows+'</div>';
+}
+
+// ---- load loop
+async function load(){
+  try{
+    const res=await fetch("/api/state",{cache:"no-store"});
+    if(res.status===401){ location.reload(); return; }
+    STATE=await res.json();
+    $("syncline").innerHTML='<span class="muted">sync</span> '+ago(STATE.generatedAt);
+    $("liveline").innerHTML=(STATE.now&&STATE.now.running)?'<span class="live"><span class="pulse"></span> live</span>':'<span class="dim">idle</span>';
+    renderOps(STATE); renderBrain(STATE); renderVideos(STATE); renderMemory(STATE);
+  }catch(e){
+    $("p-ops").innerHTML='<div class="skel">Verbindung fehlgeschlagen — neuer Versuch…</div>';
+  }
+}
+// ---- Theme-Schalter
+const _mq = window.matchMedia('(prefers-color-scheme:dark)');
+function effectiveDark(){
+  const t=document.documentElement.getAttribute('data-theme');
+  if(t==='dark')return true;
+  if(t==='light')return false;
+  return _mq.matches; // auto
+}
+function syncSwitch(){
+  const d=effectiveDark();
+  $("themeSwitch").classList.toggle('on',d);
+  $("themeTog").setAttribute('aria-checked',d);
+  const ic=$("themeTog").querySelectorAll('i');
+  ic[0].classList.toggle('act',!d); // Sonne
+  ic[1].classList.toggle('act',d);  // Mond
+  $("themeTog").querySelector('.switch').title = d?'Dunkel':'Hell';
+}
+function toggleTheme(){
+  const t = effectiveDark() ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('theme',t);
+  syncSwitch();
+}
+$("themeTog").addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter'){e.preventDefault();toggleTheme();} });
+// Solange keine eigene Wahl gespeichert ist, Systemwechsel live mitziehen
+_mq.addEventListener('change',()=>{ if(!localStorage.getItem('theme')) syncSwitch(); });
+syncSwitch();
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

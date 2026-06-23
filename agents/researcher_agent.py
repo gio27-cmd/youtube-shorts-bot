@@ -204,9 +204,12 @@ analysiere je Gelegenheit MEHRERE Dimensionen (Winkel, Setting, Hook, Hashtags, 
 Empfiehl außerdem 3 OPTIMALE POSTING-ZEITEN (UTC) für die 3 heutigen Uploads
 ("best_post_times_utc", Format "HH:MM"). Leite sie datenbasiert ab: nutze die
 `published_at`-Zeitpunkte der stärksten Trending-Videos oben (wann performt
-Content?) und bedenke, dass das Zielpublikum englischsprachig (v.a. USA) ist —
-gute Fenster sind die Aktivzeiten dort. Verteile die 3 Zeiten sinnvoll über den
-Tag (mind. ~4h Abstand), nicht alle in ein Fenster.
+Content?) und bedenke, dass das Zielpublikum englischsprachig (v.a. USA) ist.
+WICHTIG: Die 3 Zeiten müssen ÜBER DEN GANZEN TAG verteilt sein, mind. 6h
+auseinander, und je eine grob im Bereich Vormittag / Nachmittag / Abend (UTC).
+NICHT alle drei in dasselbe Nacht-/Abendfenster legen (sonst entstehen
+Produktions-Bursts). Beispiel-Raster: ~08:00, ~15:00, ~21:00 — an die Daten
+angepasst.
 
 Antworte NUR als JSON:
 {{
