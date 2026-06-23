@@ -85,8 +85,10 @@ OPTIMIZER_TIME        = "23:00"
 # ============================================================
 VIDEO_DURATION_SEC    = 10
 VIDEO_FORMAT          = "9:16"
-VIDEO_RESOLUTION_W    = 720
-VIDEO_RESOLUTION_H    = 1280
+# Shorts brauchen echtes HD (1080×1920), sonst stuft YouTube sie als SD ein und
+# spielt sie schlechter aus. Wird in der Post-Produktion per scale+crop erzwungen.
+VIDEO_RESOLUTION_W    = 1080
+VIDEO_RESOLUTION_H    = 1920
 
 # ============================================================
 # TIER-KATEGORIEN (nach Viral-Potential sortiert)

@@ -13,7 +13,7 @@ import re
 import ffmpeg
 from loguru import logger
 from config.settings import (
-    TEMP_DIR, VIDEO_DURATION_SEC,
+    TEMP_DIR, VIDEO_DURATION_SEC, VIDEO_RESOLUTION_W, VIDEO_RESOLUTION_H,
     FFMPEG_FONT_SIZE_HOOK, FFMPEG_FONT_SIZE_FACT,
     FFMPEG_FONT_COLOR, FFMPEG_FONT_BORDER, FFMPEG_MUSIC_VOLUME,
     FFMPEG_FONT_FILE
@@ -82,6 +82,14 @@ class PostProduction:
             # Video Filter Chain
             video_filtered = (
                 video_in.video
+                # Auf echtes HD-Shorts-Format bringen (1080×1920). Das KI-Modell
+                # liefert oft eine niedrigere Auflösung → ohne diesen Schritt stuft
+                # YouTube das Video als SD ein. scale (cover) + crop = exakt
+                # 1080×1920 ohne schwarze Balken; setsar=1 für saubere Pixel.
+                .filter("scale", VIDEO_RESOLUTION_W, VIDEO_RESOLUTION_H,
+                        force_original_aspect_ratio="increase")
+                .filter("crop", VIDEO_RESOLUTION_W, VIDEO_RESOLUTION_H)
+                .filter("setsar", 1)
                 # Fade in (erste ~0.33 Sek)
                 .filter("fade", type="in", start_time=0, duration=fade_d)
                 # Fade out (letzte ~0.33 Sek) — zeitbasiert, da der fade-Filter
@@ -121,7 +129,10 @@ class PostProduction:
                 vcodec="libx264",
                 acodec="aac",
                 audio_bitrate="128k",
-                video_bitrate="2000k",
+                # 2000k war zu niedrig für 1080p (Block-Artefakte). 6000k ist für
+                # 1080×1920 Shorts angemessen.
+                video_bitrate="6000k",
+                pix_fmt="yuv420p",
                 r=24,
                 shortest=None
             ).overwrite_output().run(quiet=True)
