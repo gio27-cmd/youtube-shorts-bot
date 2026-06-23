@@ -161,7 +161,12 @@ function setTab(k){
 const nz = (x)=> (typeof x==="number"&&isFinite(x))?x:0;
 function fmt(n){ n=Math.round(nz(n)); return n.toLocaleString("de-DE"); }
 function fmtShort(n){ n=nz(n); if(n>=1e6)return (n/1e6).toFixed(2).replace(".",",")+"M"; if(n>=1e3)return (n/1e3).toFixed(1).replace(".",",")+"k"; return Math.round(n).toString(); }
-function ago(iso){ if(!iso)return "—"; const s=(Date.now()-Date.parse(iso))/1000; if(s<60)return "gerade"; if(s<3600)return "vor "+Math.floor(s/60)+" min"; if(s<86400)return "vor "+Math.floor(s/3600)+" Std"; return "vor "+Math.floor(s/86400)+" T"; }
+// Zeitstempel robust parsen: Bot-Zeiten (uploaded_at etc.) sind naive UTC OHNE
+// "Z" → würden sonst als Lokalzeit gelesen (Anzeige/Sortierung um die TZ-Differenz
+// daneben). Fehlt eine Zeitzone, als UTC behandeln.
+function tp(s){ if(!s)return NaN; return Date.parse(/Z|[+-]\d\d:?\d\d$/.test(s)?s:s+"Z"); }
+function tdate(s){ return new Date(tp(s)); }
+function ago(iso){ if(!iso)return "—"; const s=(Date.now()-tp(iso))/1000; if(s<0)return "gerade"; if(s<60)return "gerade"; if(s<3600)return "vor "+Math.floor(s/60)+" min"; if(s<86400)return "vor "+Math.floor(s/3600)+" Std"; return "vor "+Math.floor(s/86400)+" T"; }
 function age(iso){ if(!iso)return "—"; const d=Math.floor((Date.now()-Date.parse(iso))/86400000); return d<=0?"heute":d+"T"; }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function latest(v){ return v.analytics_72h||v.analytics_48h||v.analytics_24h||{}; }
@@ -249,6 +254,54 @@ function renderOps(s){
   const abOpen=(s.abtests||[]).filter(a=>a.status==="running").length;
   const lastAb=(s.abtests||[]).map(a=>a.evaluated_at).filter(Boolean).sort().slice(-1)[0];
 
+  // ---- Agenten mit aufklappbaren Details (auf Zeile tippen)
+  const ob=(s.brain&&s.brain.state&&s.brain.state.observed)||{};
+  const rs=s.research||{};
+  const ab=s.abtests||[];
+  const abDone=ab.filter(a=>a.status==="completed"&&a.evaluated_at).sort((a,b)=>tp(b.evaluated_at)-tp(a.evaluated_at));
+  const wk=s.weekly||{};
+  const vSorted=vids.slice().filter(v=>v.uploaded_at).sort((a,b)=>tp(b.uploaded_at)-tp(a.uploaded_at));
+  const lastVid=vSorted[0];
+  const totalViews=vids.reduce((a,v)=>a+nz(v.views),0);
+  const retVals=vids.map(v=>nz(v.avg_view_percentage||latest(v).avg_view_percentage)).filter(x=>x>0);
+  const avgRet=retVals.length?Math.round(retVals.reduce((a,b)=>a+b,0)/retVals.length):0;
+
+  const dProd='<div class="mgrid">'
+    +evMeta("Heute",(ob.produces_today!=null?ob.produces_today:0)+"/3 Uploads")
+    +evMeta("Status",run?'<span class="blue">läuft</span>':"bereit")
+    +evMeta("Mindestabstand","6h")
+    +'</div>'
+    +'<p class="cap" style="margin-bottom:4px">Posting-Zeiten (UTC)</p><p style="margin:0 0 10px;font-size:12.5px" class="muted">'+(Array.isArray(ob.post_times)&&ob.post_times.length?ob.post_times.map(esc).join(" · "):"—")+'</p>'
+    +(lastVid?'<p class="cap" style="margin-bottom:4px">Letztes Video</p><p style="margin:0;font-size:12.5px" class="muted">'+esc(lastVid.animal||"—")+(lastVid.predicted_potential!=null?' · Potenzial '+Math.round(lastVid.predicted_potential):'')+' · '+fmtShort(lastVid.views)+' Views · '+ago(lastVid.uploaded_at)+'</p>':'');
+
+  const dRes='<div class="mgrid">'
+    +evMeta("YouTube",nz(rs.youtube_count)+" Videos")+evMeta("Reddit",nz(rs.reddit_count)+" Posts")+evMeta("Confidence",Math.round(nz(rs.confidence)*100)+"%")
+    +'</div>'
+    +'<p class="cap" style="margin-bottom:4px">Top-Tiere</p><p style="margin:0 0 10px;font-size:12.5px" class="muted">'+(esc(((rs.top_animals)||[]).join(", "))||"—")+'</p>'
+    +(rs.emerging_trend?'<p class="cap" style="margin-bottom:4px">Aufkommender Trend</p><p style="margin:0 0 10px;font-size:12.5px" class="muted">'+esc(rs.emerging_trend)+'</p>':'')
+    +(rs.avoid?'<p class="cap" style="margin-bottom:4px">Vermeiden</p><p style="margin:0;font-size:12.5px" class="muted">'+esc(rs.avoid)+'</p>':'');
+
+  const dAna='<div class="mgrid">'
+    +evMeta("Videos getrackt",fmt(vids.length))+evMeta("Σ Views",fmt(totalViews))+evMeta("Ø Retention",avgRet+"%")
+    +evMeta("Letzte Aktualisierung",ago(lastAna))+'</div>'
+    +(totalViews===0?'<p style="margin:0;font-size:12px" class="dim">Noch keine Views erfasst — neue Videos brauchen i.d.R. 24–72h, bis YouTube sie ausspielt.</p>':'');
+
+  const dAb=abDone.length||abOpen
+    ? '<div class="mgrid">'+evMeta("Offen",abOpen)+evMeta("Abgeschlossen",abDone.length)
+      +(abDone[0]?evMeta("Letzter Gewinner",'<span class="blue mono">'+esc((abDone[0].winner||"?").toUpperCase())+" +"+nz(abDone[0].uplift_pct)+'%</span>'):'')+'</div>'
+    : '<p style="margin:0;font-size:12px" class="dim">A/B-Tests sind aktuell aus (1 Variante pro Video). Greift erst wieder bei mehreren Varianten.</p>';
+
+  const dOpt='<div class="mgrid">'
+    +evMeta("Rhythmus","wöchentl.")+evMeta("Plan","So 23:00 UTC")+evMeta("Letzter Lauf",ago(wk.created_at))+'</div>'
+    +(wk.summary?'<p style="margin:0;font-size:12.5px" class="muted">'+esc(String(wk.summary).slice(0,200))+'</p>':'<p style="margin:0;font-size:12px" class="dim">Noch keine wöchentliche Optimierung gelaufen.</p>');
+
+  const agentsHtml=
+     agRow("prod","Produktion",run,(ob.produces_today!=null?ob.produces_today:0)+"/3",ago(lastUpload),dProd)
+    +agRow("res","Researcher",false,(nz(rs.reddit_count)+nz(rs.youtube_count))+" Quellen",ago(rs.saved_at),dRes)
+    +agRow("ana","Analytics",false,vids.length+" Videos",ago(lastAna),dAna)
+    +agRow("ab","A/B Tester",false,abOpen+" offen",ago(lastAb),dAb)
+    +agRow("opt","Optimizer",false,"wöchentl.",ago(wk.created_at),dOpt);
+
   $("p-ops").innerHTML = `
   <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;margin:18px 0">
     <div>
@@ -282,18 +335,25 @@ function renderOps(s){
 
   <div class="grid2">
     <div class="panel">
-      <p class="cap" style="margin-bottom:10px">Agenten</p>
-      <div class="r"><span style="flex:1;font-size:13px">Produktion</span>${run?'<span class="blue" style="font-size:11px">läuft</span>':''}<span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastUpload)}</span></div>
-      <div class="r"><span style="flex:1;font-size:13px">Researcher</span><span class="dim" style="font-size:11px">${nz((s.research||{}).reddit_count)+nz((s.research||{}).youtube_count)} Quellen</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago((s.research||{}).saved_at)}</span></div>
-      <div class="r"><span style="flex:1;font-size:13px">Analytics</span><span class="dim" style="font-size:11px">${(s.videos||[]).length} Videos</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastAna)}</span></div>
-      <div class="r"><span style="flex:1;font-size:13px">A/B Tester</span><span class="dim" style="font-size:11px">${abOpen} offen</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago(lastAb)}</span></div>
-      <div class="r"><span style="flex:1;font-size:13px">Optimizer</span><span class="dim" style="font-size:11px">wöchentl.</span><span class="mono dim" style="font-size:11px;width:62px;text-align:right">${ago((s.weekly||{}).created_at)}</span></div>
+      <p class="cap" style="margin-bottom:10px">Agenten · zum Aufklappen tippen</p>
+      ${agentsHtml}
     </div>
     <div class="panel" id="events"></div>
   </div>`;
 
   renderEvents(s);
 }
+
+// ---- agents (tappable rows)
+function agRow(key,label,running,meta,time,detail){
+  return '<div class="erow" onclick="toggleAg(\''+key+'\')"><i class="ti ti-chevron-right chev"></i>'
+    +'<span style="flex:1;font-size:13px">'+label+'</span>'
+    +(running?'<span class="blue" style="font-size:11px;margin-right:8px">läuft</span>':'')
+    +'<span class="dim" style="font-size:11px;margin-right:8px">'+meta+'</span>'
+    +'<span class="mono dim" style="font-size:11px;width:56px;text-align:right">'+time+'</span></div>'
+    +'<div class="detail hide" id="agd_'+key+'">'+detail+'</div>';
+}
+function toggleAg(k){ const d=$("agd_"+k); if(!d)return; d.classList.toggle("hide"); d.previousElementSibling.classList.toggle("open"); }
 
 // ---- events
 function evMeta(label,val){ return '<div><div class="k">'+label+'</div><div class="v">'+val+'</div></div>'; }
@@ -303,7 +363,7 @@ function eventLine(e,i){
   else if(e.kind==="ab"){ tag='<span class="tag n">ab_eval</span>'; txt="Test "+esc((e.a.test_id||"").slice(0,6)); right='<span class="mono blue" style="font-size:11px">'+esc((e.a.winner||"?").toUpperCase())+" +"+nz(e.a.uplift_pct)+'%</span>'; }
   else if(e.kind==="research"){ tag='<span class="tag n">research</span>'; txt="Trends gespeichert"; right='<span class="mono dim" style="font-size:11px">'+(((e.r.top_animals)||[]).length)+' Tiere</span>'; }
   else { const r=e.run; const fail=r.conclusion&&r.conclusion!=="success"; tag='<span class="tag '+(fail?"d":(r.status!=="completed"?"b":"n"))+'">'+esc(r.event||"run")+'</span>'; txt=esc(r.title||"Workflow-Lauf"); right='<span class="mono '+(fail?"red":"dim")+'" style="font-size:11px">'+esc(fail?r.conclusion:(r.status!=="completed"?"läuft":r.conclusion||"ok"))+'</span>'; }
-  const time=new Date(e.t); const hh=String(time.getHours()).padStart(2,"0")+":"+String(time.getMinutes()).padStart(2,"0");
+  const time=tdate(e.t); const hh=String(time.getHours()).padStart(2,"0")+":"+String(time.getMinutes()).padStart(2,"0");
   return '<div class="erow" onclick="toggleEv('+i+')"><i class="ti ti-chevron-right chev"></i>'
     +'<span class="mono dim" style="font-size:11px;width:38px">'+hh+'</span>'+tag
     +'<span style="flex:1;font-size:13px">'+txt+'</span>'+right+'</div>'
@@ -432,7 +492,7 @@ function renderBrain(s){
   const b=s.brain||{state:{},log:[]}; const st=b.state||{}; const log=b.log||[];
   const conf=(st.last_confidence!=null)?Math.round(st.last_confidence*100)+"%":"—";
   const rows = log.length ? log.map(e=>{
-    const time=e.t?(d=>String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"))(new Date(e.t)):"—";
+    const time=e.t?(d=>String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"))(tdate(e.t)):"—";
     let status;
     if(e.dispatched) status='<span class="tag" style="background:var(--blue-bg);color:var(--blue)">→ '+actLabel(e.dispatched)+' ausgelöst</span>';
     else if(e.blocked && e.blocked!=="idle") status='<span class="tag" style="background:var(--surface2);color:var(--text2)">'+actLabel(e.action)+' · '+esc(e.blocked)+'</span>';
