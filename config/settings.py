@@ -33,7 +33,7 @@ GEMINI_MODEL          = GEMINI_MODELS[0]   # Primär-/Default-Modell (Rückwärt
 # OpenRouter — LETZTER Fallback, erst wenn alle Google-Modelle ausfallen.
 # Ohne Key bleibt es beim reinen Google-Verhalten.
 OPENROUTER_API_KEY    = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL      = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
+OPENROUTER_MODEL      = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 
 YOUTUBE_CLIENT_ID     = os.getenv("YOUTUBE_CLIENT_ID")
 YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
