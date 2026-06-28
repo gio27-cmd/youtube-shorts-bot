@@ -22,23 +22,33 @@ class ContentBuilder:
 
     def generate_video_prompt(self, animal: str, style: str) -> str:
         return self._ask_gemini(f"""
-Create a short English image-to-video prompt for WAN 2.2 AI model.
+Create a short English image-to-video prompt for an AI video model.
 Animal: {animal}
 Style: {style}
-Requirements: photorealistic, cinematic, natural movement, 9:16 portrait
-Setting: beautiful natural environment
-Action: gentle natural animal movement
+The result MUST look like real wildlife camera footage, NOT animation.
+Requirements: photorealistic live-action footage, shot on a professional
+cinema camera, shallow depth of field, natural realistic fur/feather detail,
+subtle lifelike movement, 9:16 portrait.
+Setting: beautiful natural environment.
+Action: gentle natural animal movement.
+Strictly avoid: cartoon, illustration, drawing, anime, 3d render, CGI,
+video game look, plastic skin, painterly style.
 Max 80 words. English only. No watermarks. No text in scene.
 """)
 
     def generate_image_prompt(self, animal: str, style: str) -> str:
         return self._ask_gemini(f"""
-Create an English image generation prompt for Kling O1.
+Create an English text-to-image prompt for a photo generator.
 Animal: {animal}
 Style: {style}
-Requirements: photorealistic 4K, close-up portrait, cute natural expression,
-natural soft lighting, 9:16 vertical format, beautiful nature background.
-No text, no watermarks, no humans.
+The image MUST look like a real photograph, NOT an illustration.
+Requirements: hyperrealistic wildlife photograph, shot on a DSLR with an
+85mm f/1.8 lens, shallow depth of field, sharp focus on the eyes, natural
+skin/fur texture with individual hairs, soft natural lighting, golden hour,
+close-up portrait, cute natural expression, 9:16 vertical, beautiful blurred
+nature background (bokeh), professional National Geographic style.
+Strictly avoid: cartoon, illustration, drawing, painting, anime, 3d render,
+CGI, video game, plastic look, oversaturated colors, text, watermark, humans.
 Max 80 words. English only.
 """)
 

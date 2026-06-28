@@ -47,11 +47,20 @@ class Uploader:
         """
         youtube = self._get_youtube_service()
 
-        hook_text = content.get(f"hook_text_{variant}", "")
-        title     = content.get("title", f"{video_plan.get('animal', 'Tier')} Video")
-        hashtags  = content.get("hashtags", [])
+        hook_text   = content.get(f"hook_text_{variant}", "")
+        title       = content.get("title", f"{video_plan.get('animal', 'Tier')} Video")
+        hashtags    = content.get("hashtags", [])
+        animal_fact = content.get("animal_fact", "")
+
+        # Texte werden nicht mehr ins Video gebrannt → der Tier-Fakt kommt
+        # ab sofort in die Beschreibung (falls die generierte Description ihn
+        # nicht ohnehin schon enthält).
+        desc_text = content.get("description", "")
+        if animal_fact and animal_fact not in desc_text:
+            desc_text = (desc_text + "\n\n" + animal_fact).strip()
+
         description = (
-            content.get("description", "") +
+            desc_text +
             "\n\n" +
             " ".join(hashtags)
         )

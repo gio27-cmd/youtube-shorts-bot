@@ -1,31 +1,21 @@
 """
-Post Production — FFmpeg kombiniert Video + Musik + Text.
+Post Production — FFmpeg kombiniert Video + Musik.
 
 In EINEM Durchlauf:
 1. Musik mischen (30% Lautstärke)
-2. Hook-Text erste 2 Sekunden (groß, oben, fett)
-3. Tier-Fakt Sekunde 4-8 (mittig, gelb)
-4. Fade in/out (0.3 Sek)
+2. Auf echtes HD-Shorts-Format (1080×1920) bringen
+3. Fade in/out (0.3 Sek)
+
+Hinweis: Es werden KEINE Text-Overlays (Hook/Fakt) mehr ins Video gebrannt.
+Der Tier-Fakt landet stattdessen in der YouTube-Beschreibung (siehe uploader).
 """
 
 import os
-import re
 import ffmpeg
 from loguru import logger
 from config.settings import (
     TEMP_DIR, VIDEO_DURATION_SEC, VIDEO_RESOLUTION_W, VIDEO_RESOLUTION_H,
-    FFMPEG_FONT_SIZE_HOOK, FFMPEG_FONT_SIZE_FACT,
-    FFMPEG_FONT_COLOR, FFMPEG_FONT_BORDER, FFMPEG_MUSIC_VOLUME,
-    FFMPEG_FONT_FILE
-)
-
-# Emoji-/Symbol-Bereiche — ffmpeg drawtext kann keine Farb-Emojis rendern,
-# sonst erscheinen leere Kästchen im Video. Daher aus den Overlays entfernen
-# (in Titel/Beschreibung auf YouTube bleiben Emojis natürlich erhalten).
-_EMOJI_RE = re.compile(
-    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF"
-    "\U00002190-\U000021FF\U00002B00-\U00002BFF\U0000FE00-\U0000FE0F\U0000200D]+",
-    flags=re.UNICODE
+    FFMPEG_MUSIC_VOLUME
 )
 
 
@@ -45,16 +35,6 @@ class PostProduction:
         """
         output_path = os.path.join(TEMP_DIR, f"{video_id}_final_{variant}.mp4")
         os.makedirs(TEMP_DIR, exist_ok=True)
-
-        hook_text   = content.get(f"hook_text_{variant}", "You won't believe this 😱")
-        animal_fact = content.get("animal_fact", "")
-
-        # Emojis raus (drawtext kann sie nicht) + Sonderzeichen für FFmpeg escapen
-        hook_escaped  = self._escape_ffmpeg_text(self._strip_emoji(hook_text))
-        fact_escaped  = self._escape_ffmpeg_text(self._strip_emoji(animal_fact))
-
-        # Optionale Font-Datei (auf dem VPS gesetzt) für alle drawtext-Aufrufe
-        font_kw = {"fontfile": FFMPEG_FONT_FILE} if FFMPEG_FONT_FILE else {}
 
         # Echte Videodauer für den Fade-out (zeitbasiert, kein Frame-Ausdruck).
         dur = self._duration(video_path)
@@ -95,30 +75,7 @@ class PostProduction:
                 # Fade out (letzte ~0.33 Sek) — zeitbasiert, da der fade-Filter
                 # bei start_frame KEINE Ausdrücke akzeptiert (war der Crash-Grund).
                 .filter("fade", type="out", start_time=fade_out_start, duration=fade_d)
-                # Hook-Text: erste 2 Sekunden, oben zentriert
-                .drawtext(
-                    text=hook_escaped,
-                    fontsize=FFMPEG_FONT_SIZE_HOOK,
-                    fontcolor=FFMPEG_FONT_COLOR,
-                    borderw=3,
-                    bordercolor=FFMPEG_FONT_BORDER,
-                    x="(w-text_w)/2",
-                    y="80",
-                    enable="between(t,0,2)",
-                    **font_kw
-                )
-                # Tier-Fakt: Sekunde 4-8, mittig
-                .drawtext(
-                    text=fact_escaped,
-                    fontsize=FFMPEG_FONT_SIZE_FACT,
-                    fontcolor="yellow",
-                    borderw=2,
-                    bordercolor=FFMPEG_FONT_BORDER,
-                    x="(w-text_w)/2",
-                    y="(h-text_h)/2",
-                    enable="between(t,4,8)",
-                    **font_kw
-                )
+                # KEINE Text-Overlays mehr — Hook/Fakt stehen in der Beschreibung.
             )
 
             # Output
@@ -167,19 +124,6 @@ class PostProduction:
             return any(s.get("codec_type") == "audio" for s in probe.get("streams", []))
         except Exception:
             return False
-
-    def _strip_emoji(self, text: str) -> str:
-        """Entfernt Emojis/Symbole, die drawtext nicht rendern kann."""
-        return _EMOJI_RE.sub("", text).strip()
-
-    def _escape_ffmpeg_text(self, text: str) -> str:
-        """Escaped Sonderzeichen für FFmpeg drawtext."""
-        return (
-            text
-            .replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace(":", "\\:")
-        )
 
     def verify_output(self, path: str) -> bool:
         if not os.path.exists(path):

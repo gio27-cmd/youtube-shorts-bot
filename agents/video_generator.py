@@ -34,7 +34,7 @@ VIDEO_SPACES = [
         "api_name": "/image_to_video",
         "kwargs":   lambda image_path, prompt, duration: {
             "prompt":                prompt,
-            "negative_prompt":       "worst quality, inconsistent motion, blurry, jittery, distorted",
+            "negative_prompt":       "cartoon, illustration, drawing, anime, 3d render, cgi, video game, painterly, plastic skin, worst quality, inconsistent motion, blurry, jittery, distorted",
             "input_image_filepath":  handle_file(image_path),
             "mode":                  "image-to-video",
             "duration_ui":           float(duration),
