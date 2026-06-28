@@ -12,16 +12,20 @@ load_dotenv()
 # ============================================================
 GEMINI_API_KEY        = os.getenv("GEMINI_API_KEY")
 
-# Google-Modelle in PRIORITÄTSREIHENFOLGE: neuestes zuerst, danach bewährte
-# Free-Tier-Modelle. Jedes Modell hat eine EIGENE kostenlose Tagesquota — ist
-# das neueste gerade leer/nicht erreichbar, wird automatisch das nächste Google-
-# Modell probiert. Erst wenn ALLE scheitern, übernimmt OpenRouter (config.llm).
+# Google-Modelle in PRIORITÄTSREIHENFOLGE: zuverlässigstes Free-Tier-Modell
+# zuerst. Jedes Modell hat eine EIGENE kostenlose Tagesquota — ist eins leer/
+# nicht erreichbar, wird automatisch das nächste Google-Modell probiert. Erst
+# wenn ALLE scheitern, übernimmt OpenRouter (config.llm).
 # Per Env GEMINI_MODELS (kommagetrennt) überschreibbar.
 # Hinweis: gemini-2.0-flash bewusst NICHT enthalten — hat im Free-Tier limit 0.
+# gemini-3.5-flash bewusst ZULETZT: Free-Tier-Quota nur 20 Requests/Tag
+# (GenerateRequestsPerDayPerProjectPerModel-FreeTier=20). Als Primärmodell war es
+# nach ~1h erschöpft und lieferte den Rest des Tages 429 → "LLM nicht erreichbar".
+# Deshalb steht das zuverlässige 2.5-flash vorn, 3.5-flash nur als Bonus am Ende.
 GEMINI_MODELS = [
     m.strip() for m in os.getenv(
         "GEMINI_MODELS",
-        "gemini-3.5-flash,gemini-2.5-flash,gemini-2.5-flash-lite"
+        "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.5-flash"
     ).split(",") if m.strip()
 ]
 GEMINI_MODEL          = GEMINI_MODELS[0]   # Primär-/Default-Modell (Rückwärtskompat.)
@@ -166,6 +170,16 @@ YOUTUBE_MAX_UPLOADS_PER_DAY = 3     # 3 produce-Läufe/Tag, je 1 Upload
 VIRAL_THRESHOLD_VIEWS  = 50000
 GOOD_THRESHOLD_VIEWS   = 10000
 BAD_THRESHOLD_VIEWS    = 1000
+
+# Statistik-Untergrenze: Retention/Like-Rate eines EINZELNEN Videos sind erst
+# ab dieser View-Zahl aussagekräftig. Darunter ist jede Quote reines Rauschen
+# (z.B. "148% Retention" bei 2 Views) und darf KEIN viral/bad-Muster erzeugen.
+# Solche Videos bleiben "pending" und fließen NICHT in best/worst-Patterns.
+MIN_VIEWS_FOR_SIGNAL   = 1000
+# So viele Videos mit echtem Signal (>= MIN_VIEWS_FOR_SIGNAL) braucht der Kanal,
+# bevor die EIGENE Erfahrung externe Trends überstimmen darf. Vorher gilt
+# Cold-Start: externen Trends folgen, interne Mini-Stichproben ignorieren.
+MIN_VIDEOS_FOR_PATTERNS = 10
 
 # ============================================================
 # FFMPEG SETTINGS

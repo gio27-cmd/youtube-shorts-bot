@@ -20,9 +20,11 @@
 const WORKFLOW = "bot.yml";
 const BRAIN_STATE = "brain:state";
 const BRAIN_LOG = "brain:log";
-// Google-Modelle in Prioritätsreihenfolge (neuestes zuerst). Jedes hat eine
-// eigene Free-Quota — erst wenn ALLE scheitern, übernimmt OpenRouter.
-const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+// Google-Modelle in Prioritätsreihenfolge (zuverlässigstes Free-Tier zuerst).
+// Jedes hat eine eigene Free-Quota — erst wenn ALLE scheitern, übernimmt OpenRouter.
+// gemini-3.5-flash steht ZULETZT: Free-Tier nur 20 Requests/Tag → war als #1
+// nach ~1h erschöpft und gab den Rest des Tages 429 ("LLM nicht erreichbar").
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash"];
 
 const ACTIONS = ["research", "produce", "analytics", "ab_evaluate", "comments", "optimize", "idle"];
 
@@ -40,6 +42,12 @@ const COOLDOWN = {
   optimize: 24 * 3600e3,
 };
 const MAX_PRODUCE_PER_DAY = 3;
+// Statistik-Untergrenze (muss zu config/settings.py passen): Quoten eines Videos
+// sind erst ab so vielen Views aussagekräftig; darunter ist alles Rauschen.
+const MIN_VIEWS_FOR_SIGNAL = 1000;
+// So viele Videos mit echtem Signal braucht der Kanal, bevor die eigene Erfahrung
+// externe Trends überstimmen darf. Vorher: Cold-Start → Trends folgen.
+const MIN_VIDEOS_FOR_PATTERNS = 10;
 // Mindestabstand zwischen zwei ECHTEN Uploads (Stunden). Verhindert Bursts und
 // sorgt für echte Tagesverteilung — unabhängig vom Mitternachts-Reset. 6h erlaubt
 // 3 Videos/Tag (z.B. ~8h-Raster), blockiert aber das 30-Min-Hintereinander.
@@ -164,10 +172,20 @@ async function summarize(env, state) {
   const abDue = abtests.filter((a) => a.status === "running" && a.started_at && (ageHnum(a.started_at) || 0) > 48).length;
   const r = research || {};
 
+  // Statistische Reife: Videos mit genug Reichweite, dass ihre Quoten zählen.
+  // Solange < MIN_VIDEOS_FOR_PATTERNS → Cold-Start: externen Trends folgen,
+  // interne Mini-Stichproben (Retention/Like-Rate) als Rauschen behandeln.
+  const reliableVideos = videos.filter((v) => (v.views || 0) >= MIN_VIEWS_FOR_SIGNAL).length;
+  const totalViews = videos.reduce((s, v) => s + (v.views || 0), 0);
+  const coldStart = reliableVideos < MIN_VIDEOS_FOR_PATTERNS;
+
   return {
     utc: new Date().toISOString(),
     weekday_utc: new Date().getUTCDay(),
     videos_total: videos.length,
+    reliable_videos: reliableVideos,
+    total_views: totalViews,
+    cold_start: coldStart,
     fresh_videos_under_48h: freshUnder48,
     recent_videos: recent,
     ab_running_due: abDue,
@@ -206,8 +224,13 @@ Reaktive Heuristik (nutze die Signale!):
 - research veraltet → research.
 - sonst → idle. Sei sparsam, löse nichts ohne Grund aus.
 
+Datengewichtung für die 'insight':
+- cold_start=${ctx.cold_start} (reliable_videos=${ctx.reliable_videos}, total_views=${ctx.total_views}). Ein Video zählt erst ab ${MIN_VIEWS_FOR_SIGNAL} Views als belastbar; ${MIN_VIDEOS_FOR_PATTERNS} solcher Videos sind nötig, bevor eigene Muster verlässlich sind.
+- Wenn cold_start=true: FOLGE DEN EXTERNEN TRENDS (research.top_animals/emerging). Behandle interne Quoten (Retention, Like-Rate, best_animal/best_hook) als RAUSCHEN aus Mini-Stichproben und überstimme damit KEINEN externen Trend. Eine Retention nahe/über 100% ist ein Artefakt, kein Erfolgsbeleg. Empfiehl breitere, trendstarke Formate, um erst Reichweite und echte Daten aufzubauen — keine verfrühte Nischen-Verengung.
+- Wenn cold_start=false: Dann darf die eigene Erfahrung (sofern aus Videos mit echter Reichweite) externe Trends überstimmen.
+
 Antworte NUR als JSON:
-{"action":"<aktion>","reasoning":"<1-2 Sätze, warum jetzt – nenne das konkrete Signal>","confidence":<0..1>,"insight":"<2-3 Sätze strategische Analyse auf Deutsch: gewichte EIGENE Erfahrung (was bei uns funktioniert hat) höher als externe Trends; nenne konkret Tier/Winkel/Setting/Hook/Hashtag-Richtung, auf die als Nächstes gesetzt werden sollte, und was zu vermeiden ist>"}`;
+{"action":"<aktion>","reasoning":"<1-2 Sätze, warum jetzt – nenne das konkrete Signal>","confidence":<0..1>,"insight":"<2-3 Sätze strategische Analyse auf Deutsch nach der Datengewichtung oben: nenne konkret Tier/Winkel/Setting/Hook/Hashtag-Richtung, auf die als Nächstes gesetzt werden sollte, und was zu vermeiden ist>"}`;
 
   const text = await askLLM(env, prompt);
   const out = JSON.parse(text);

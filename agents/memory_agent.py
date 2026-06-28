@@ -21,7 +21,8 @@ from config.settings import (
     KV_PREFIX_VIDEO, KV_KEY_RESEARCH, KV_KEY_STRATEGY,
     KV_KEY_BEST, KV_KEY_WORST, KV_PREFIX_ABTEST,
     KV_KEY_CHANNEL, KV_KEY_WEEKLY,
-    VIRAL_THRESHOLD_VIEWS, GOOD_THRESHOLD_VIEWS, BAD_THRESHOLD_VIEWS
+    VIRAL_THRESHOLD_VIEWS, GOOD_THRESHOLD_VIEWS, BAD_THRESHOLD_VIEWS,
+    MIN_VIEWS_FOR_SIGNAL
 )
 
 
@@ -96,16 +97,23 @@ class MemoryAgent:
         existing.update(analytics)
         existing["analytics_updated_at"] = datetime.now().isoformat()
 
-        # Qualität primär an VERWEILDAUER (Retention) + LIKE-RATE festmachen — das
-        # sind die echten Erfolgssignale und funktionieren auch bei wenigen Views
-        # (neuer Kanal). Views fließen nur als Bonus/Override bei viralem Reach ein.
+        # Qualität an VERWEILDAUER (Retention) + LIKE-RATE festmachen — ABER erst
+        # ab einer statistisch belastbaren View-Zahl. Bei sehr wenigen Views ist
+        # jede Quote reines Rauschen (z.B. "148% Retention" bei 2 Views) und darf
+        # KEIN viral/bad-Urteil erzeugen — sonst überstimmt Mini-Stichproben-Müll
+        # später die echten externen Trends. Solche Videos bleiben "pending".
         views     = existing.get("views", 0)
         likes     = existing.get("likes", 0)
-        retention = existing.get("avg_view_percentage", 0)        # 0-100
+        # Retention auf den physikalisch möglichen Bereich begrenzen: >100% ist ein
+        # Datenartefakt (Loops/Rewatches) und kein Erfolgsbeleg.
+        retention = max(0, min(existing.get("avg_view_percentage", 0) or 0, 100))
         like_rate = round(likes / views, 4) if views else 0.0
         existing["like_rate"] = like_rate
 
-        if (retention >= 60 and like_rate >= 0.04) or views >= VIRAL_THRESHOLD_VIEWS:
+        if views < MIN_VIEWS_FOR_SIGNAL and views < GOOD_THRESHOLD_VIEWS:
+            # Zu wenig Reichweite für ein belastbares Urteil → neutral lassen.
+            existing["performance"] = "pending"
+        elif (retention >= 60 and like_rate >= 0.04) or views >= VIRAL_THRESHOLD_VIEWS:
             existing["performance"] = "viral"
         elif retention >= 40 or views >= GOOD_THRESHOLD_VIEWS:
             existing["performance"] = "good"

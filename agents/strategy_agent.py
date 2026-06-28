@@ -9,7 +9,8 @@ from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 from config.settings import (
     HOOK_TEMPLATES, ANIMAL_CATEGORIES,
-    UPLOAD_TIME_VIDEO_1, UPLOAD_TIME_VIDEO_2
+    UPLOAD_TIME_VIDEO_1, UPLOAD_TIME_VIDEO_2,
+    MIN_VIEWS_FOR_SIGNAL, MIN_VIDEOS_FOR_PATTERNS
 )
 from config.llm import LLMClient
 from agents.memory_agent import MemoryAgent
@@ -32,23 +33,49 @@ class StrategyAgent:
         last_10  = self.memory.get_last_n_videos(10)
         ab_results = self.memory.get_all_ab_results()
 
+        # Statistische Reife des Kanals: Wie viele Videos haben überhaupt genug
+        # Reichweite, dass ihre Quoten etwas bedeuten? Erst ab MIN_VIDEOS_FOR_PATTERNS
+        # solcher Videos darf die eigene Erfahrung externe Trends überstimmen.
+        all_videos    = self.memory.get_all_videos()
+        reliable      = [v for v in all_videos
+                         if (v.get("views", 0) or 0) >= MIN_VIEWS_FOR_SIGNAL]
+        total_views   = sum((v.get("views", 0) or 0) for v in all_videos)
+        cold_start    = len(reliable) < MIN_VIDEOS_FOR_PATTERNS
+
+        if cold_start:
+            weighting_rule = f"""DATEN-LAGE: COLD-START. Der Kanal hat erst {len(all_videos)} Videos
+und nur {len(reliable)} davon mit statistisch belastbarer Reichweite
+(>= {MIN_VIEWS_FOR_SIGNAL} Views; gesamt {total_views} Views). Das reicht NICHT, um
+zu beurteilen, welches Tier/Format bei UNS funktioniert.
+
+REGEL (Cold-Start): FOLGE DEN EXTERNEN TRENDS / 'opportunities'. Behandle die
+internen Quoten (Retention, Like-Rate, "best/worst patterns") als RAUSCHEN und
+ignoriere sie als Entscheidungsgrundlage — sie stammen aus winzigen Stichproben.
+Überstimme einen starken externen Trend NICHT mit internen Mini-Daten. Eine
+Retention nahe oder über 100% ist ein Artefakt, KEIN Erfolgsbeleg. Wähle bewusst
+breitere, trendstarke Formate, um überhaupt erst Reichweite und echte Daten
+aufzubauen — Nischen-Verengung ist jetzt schädlich."""
+        else:
+            weighting_rule = f"""DATEN-LAGE: GENUG SIGNAL ({len(reliable)} Videos mit
+>= {MIN_VIEWS_FOR_SIGNAL} Views, gesamt {total_views} Views).
+
+REGEL: Jetzt darf die EIGENE Erfahrung externe Trends überstimmen — aber NUR,
+soweit sie auf Videos mit echter Reichweite beruht. Quoten aus Videos mit sehr
+wenigen Views bleiben Rauschen. Retention >100% ist ein Artefakt, kein Beleg."""
+
         prompt = f"""
 Du bist ein datengetriebener YouTube-Shorts-Stratege für einen Tier-Kanal.
 
-Es gibt ZWEI Wissensquellen — gewichte sie BEWUSST:
+{weighting_rule}
 
-🧠 EIGENE ERFAHRUNG (höchste Priorität — hat bei UNS nachweislich funktioniert):
+🧠 EIGENE ERFAHRUNG (nur belastbar bei genug Reichweite — siehe DATEN-LAGE oben):
 - Bewährte Muster (viral): {json.dumps(best, ensure_ascii=False)}
 - Zu vermeiden (schlecht gelaufen): {json.dumps(worst, ensure_ascii=False)}
 - Letzte 10 Videos (Performance): {json.dumps(last_10, ensure_ascii=False)}
 - A/B-Test-Ergebnisse: {json.dumps(ab_results[-5:] if ab_results else [], ensure_ascii=False)}
 
-🌍 EXTERNE BEOBACHTUNGEN (Trends da draußen — nutzen, aber der eigenen Erfahrung unterordnen):
+🌍 EXTERNE BEOBACHTUNGEN (Trends da draußen):
 {json.dumps(research, ensure_ascii=False)}
-
-REGEL: Widersprechen sich eigene Erfahrung und externe Trends, folge der EIGENEN
-Erfahrung. Gibt es noch keine eigene Erfahrung (Kanal neu), stütze dich auf die
-'opportunities' aus den Beobachtungen.
 
 Plane EXAKT {count} VERSCHIEDENE Video-Kandidaten für heute (Vielfalt bei Tier,
 Winkel und Hook). Aus diesen werden später die besten zum Upload ausgewählt.
